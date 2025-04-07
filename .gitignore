@@ -1,0 +1,27 @@
+# Build directories
+build/
+cmake-build*/
+
+# Compiled object files
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.lib
+*.exe
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+
+# IDE files
+.vscode/
+.idea/
+
+# Generated reports
+clang-tidy-report.txt
+
+# macOS
+.DS_Store

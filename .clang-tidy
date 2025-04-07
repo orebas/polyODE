@@ -1,0 +1,55 @@
+# Configure clang-tidy for modern C++ development
+
+#Some of these exclusions might want to be added back periodically. 
+Checks: '
+    *,
+    -abseil-*,
+    -altera-*,
+    -android-*,
+    -fuchsia-*,
+  #  -google-*,
+    -llvm*,
+    -modernize-use-designated-initializers,
+    -modernize-pass-by-value,
+    -boost-use-ranges,
+    -bugprone-easily-swappable-parameters,
+    -google-default-arguments,
+    -misc-no-recursion,
+    -modernize-use-trailing-return-type,
+    -modernize-use-constraints,
+    -zircon-*,
+    -readability-else-after-return,
+    -readability-static-accessed-through-instance,
+    -readability-avoid-const-params-in-decls,
+    -clang-diagnostic-sign-conversion,
+    -cppcoreguidelines-non-private-member-variables-in-classes,
+    -misc-non-private-member-variables-in-classes,
+    -cppcoreguidelines-avoid-magic-numbers,
+    -readability-magic-numbers,
+    -cppcoreguidelines-pro-type-vararg,
+    -hicpp-vararg,
+    -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+    -cppcoreguidelines-avoid-c-arrays,
+    -modernize-avoid-c-arrays,
+    -hicpp-avoid-c-arrays,
+    -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+    -hicpp-no-array-decay,
+    -readability-identifier-length,
+    -misc-include-cleaner,
+    -readability-function-cognitive-complexity,
+    -cppcoreguidelines-avoid-do-while,
+    -modernize-concat-nested-namespaces
+    -bugprone-narrowing-conversions,
+    -cppcoreguidelines-narrowing-conversions,
+    -modernize-concat-nested-namespaces
+    '
+WarningsAsErrors: ''
+HeaderFilterRegex: 'spml/.*'
+FormatStyle: 'file'
+
+# Disable specific checks in specific files
+CheckOptions:
+  - key: readability-function-cognitive-complexity.Threshold
+    value: '25'
+  - key: readability-function-size.LineThreshold
+    value: '100'
