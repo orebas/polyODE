@@ -164,7 +164,7 @@ class ODESystem {
         for (const auto &obs_pair : m_observables) { results[obs_pair.first] = {}; }
 
         // Setup observer
-        InternalObserver observer(results, m_state_vars, *this);
+        InternalObserver const observer(results, m_state_vars, *this);
 
         // Setup stepper (using adaptive Dopri5 as default)
         using ErrorStepperType = odeint::runge_kutta_dopri5<StateType>;
@@ -194,7 +194,7 @@ class ODESystem {
             odeint::integrate_times(
               stepper, *this, current_state, observe_times.begin(), observe_times.end(), dt_integrate_hint, observer);
         } catch (const std::exception &e) {
-            std::cerr << "\nError during integration: " << e.what() << std::endl;
+            std::cerr << "\nError during integration: " << e.what() << '\n';
             // Consider how to handle partial results - maybe return them?
             // For now, just rethrow or return potentially incomplete results.
             return results;
@@ -235,7 +235,7 @@ class ODESystem {
                                                      rel_err);
                 batch_results.push_back(std::move(single_result));
             } catch (const std::exception &e) {
-                std::cerr << "Error in batch simulation run " << (i + 1) << ": " << e.what() << std::endl;
+                std::cerr << "Error in batch simulation run " << (i + 1) << ": " << e.what() << '\n';
                 // Optionally: add an empty map or rethrow
                 batch_results.push_back({}); // Add empty result to maintain size correspondence
             }

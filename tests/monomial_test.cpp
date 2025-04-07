@@ -11,13 +11,13 @@ const Variable z("z");
 const Variable k("k", 0, true); // A constant parameter
 
 TEST(MonomialTest, DefaultConstructor) {
-    Monomial<double> m;
+    Monomial<double> const m;
     EXPECT_TRUE(m.vars.empty());
     EXPECT_EQ(m.coeff, 0.0);
 }
 
 TEST(MonomialTest, ConstantTermConstructor) {
-    Monomial<double> m(5.0);
+    Monomial<double> const m(5.0);
     EXPECT_TRUE(m.vars.empty());
     EXPECT_EQ(m.coeff, 5.0);
 }
@@ -34,7 +34,7 @@ TEST(MonomialTest, SingleVariableConstructor) {
     EXPECT_EQ(my_pow2.coeff, 1.0);
 
     // Test zero exponent
-    Monomial<double> m_zero_exp(1.0, z, 0);
+    Monomial<double> const m_zero_exp(1.0, z, 0);
     EXPECT_TRUE(m_zero_exp.vars.empty());
     EXPECT_EQ(m_zero_exp.coeff, 1.0);
 }
@@ -68,34 +68,34 @@ TEST(MonomialTest, VectorConstructor) {
 }
 
 TEST(MonomialTest, Evaluation) {
-    Monomial<double> m_x2y(3.0, { { x, 2 }, { y, 1 } });
-    std::map<Variable, double> values = { { x, 2.0 }, { y, 5.0 } };
+    Monomial<double> const m_x2y(3.0, { { x, 2 }, { y, 1 } });
+    std::map<Variable, double> const values = { { x, 2.0 }, { y, 5.0 } };
     // 3.0 * (2.0^2) * (5.0^1) = 3.0 * 4.0 * 5.0 = 60.0
     EXPECT_DOUBLE_EQ(m_x2y.evaluate<double>(values), 60.0);
 
-    Monomial<double> m_const_term(7.0);
+    Monomial<double> const m_const_term(7.0);
     EXPECT_DOUBLE_EQ(m_const_term.evaluate<double>({}), 7.0);
-    std::map<Variable, double> empty_map = {};
+    std::map<Variable, double> const empty_map = {};
     EXPECT_DOUBLE_EQ(m_const_term.evaluate<double>(empty_map), 7.0);
 
-    Monomial<double> m_with_param(5.0, { { k, 2 }, { x, 1 } }); // 5*k^2*x
-    std::map<Variable, double> values_with_k = { { x, 2.0 }, { k, 3.0 } };
+    Monomial<double> const m_with_param(5.0, { { k, 2 }, { x, 1 } }); // 5*k^2*x
+    std::map<Variable, double> const values_with_k = { { x, 2.0 }, { k, 3.0 } };
     // 5.0 * (3.0^2) * (2.0^1) = 5.0 * 9.0 * 2.0 = 90.0
     EXPECT_DOUBLE_EQ(m_with_param.evaluate<double>(values_with_k), 90.0);
 
     // Test missing variable
-    Monomial<double> m_xyz(1.0, { { x, 1 }, { y, 1 }, { z, 1 } });
-    std::map<Variable, double> missing_z = { { x, 2.0 }, { y, 3.0 } };
+    Monomial<double> const m_xyz(1.0, { { x, 1 }, { y, 1 }, { z, 1 } });
+    std::map<Variable, double> const missing_z = { { x, 2.0 }, { y, 3.0 } };
     EXPECT_THROW(m_xyz.evaluate<double>(missing_z), std::runtime_error);
 }
 
 TEST(MonomialTest, HasSameVariables) {
-    Monomial<double> m_x2y_1(3.0, { { x, 2 }, { y, 1 } });
-    Monomial<double> m_x2y_2(5.0, { { x, 2 }, { y, 1 } }); // Same vars, different coeff
-    Monomial<double> m_xy2(3.0, { { x, 1 }, { y, 2 } });   // Different powers
-    Monomial<double> m_x2(3.0, { { x, 2 } });              // Different vars
-    Monomial<double> m_empty1(3.0);
-    Monomial<double> m_empty2(5.0);
+    Monomial<double> const m_x2y_1(3.0, { { x, 2 }, { y, 1 } });
+    Monomial<double> const m_x2y_2(5.0, { { x, 2 }, { y, 1 } }); // Same vars, different coeff
+    Monomial<double> const m_xy2(3.0, { { x, 1 }, { y, 2 } });   // Different powers
+    Monomial<double> const m_x2(3.0, { { x, 2 } });              // Different vars
+    Monomial<double> const m_empty1(3.0);
+    Monomial<double> const m_empty2(5.0);
 
     EXPECT_TRUE(m_x2y_1.hasSameVariables(m_x2y_2));
     EXPECT_FALSE(m_x2y_1.hasSameVariables(m_xy2));
@@ -105,10 +105,10 @@ TEST(MonomialTest, HasSameVariables) {
 }
 
 TEST(MonomialTest, Multiplication) {
-    Monomial<double> m_x2(3.0, { { x, 2 } });
-    Monomial<double> m_y(2.0, { { y, 1 } });
-    Monomial<double> m_xy(-1.0, { { x, 1 }, { y, 1 } });
-    Monomial<double> m_const(5.0);
+    Monomial<double> const m_x2(3.0, { { x, 2 } });
+    Monomial<double> const m_y(2.0, { { y, 1 } });
+    Monomial<double> const m_xy(-1.0, { { x, 1 }, { y, 1 } });
+    Monomial<double> const m_const(5.0);
 
     // (3x^2) * (2y) = 6x^2y
     Monomial<double> res1 = m_x2 * m_y;
@@ -144,9 +144,9 @@ TEST(MonomialTest, Multiplication) {
     EXPECT_EQ(res5.vars.at(y), 1);
 
     // Test multiplication resulting in zero power
-    Monomial<double> m_x_inv(1.0, { { x, -1 } });
-    Monomial<double> m_x(1.0, { { x, 1 } });
-    Monomial<double> res6 = m_x_inv * m_x;
+    Monomial<double> const m_x_inv(1.0, { { x, -1 } });
+    Monomial<double> const m_x(1.0, { { x, 1 } });
+    Monomial<double> const res6 = m_x_inv * m_x;
     EXPECT_EQ(res6.coeff, 1.0);
     EXPECT_TRUE(res6.vars.empty());
 }

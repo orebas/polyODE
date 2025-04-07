@@ -147,7 +147,7 @@ struct Monomial {
         T result = T(coeff); // Convert coefficient Coeff to type T
         for (const auto &var_pair : vars) {
             const Variable &v = var_pair.first;
-            int exponent = var_pair.second;
+            int const exponent = var_pair.second;
 
             auto it = values.find(v);
             if (it == values.end()) {
@@ -207,7 +207,7 @@ operator<<(std::ostream &os, const Monomial<Coeff> &m) {
         return os;
     }
 
-    bool has_vars = !m.vars.empty();
+    bool const has_vars = !m.vars.empty();
 
     // Always print the coefficient.
     os << m.coeff;
@@ -245,7 +245,7 @@ struct Polynomial {
     // Constructor from a single variable (assumes coefficient 1)
     Polynomial(const Variable &var) {
         // Assumes Coeff can be constructed from int(1)
-        Monomial<Coeff> m(Coeff(1), var, 1);
+        Monomial<Coeff> const m(Coeff(1), var, 1);
         if (m.coeff != Coeff{}) { // Should always be true unless Coeff(1) is zero
             monomials.push_back(m);
         }
@@ -512,7 +512,7 @@ differentiate_wrt_t(const Monomial<Coeff> &m) {
 
     for (const auto &pair : m.vars) {
         const Variable &v = pair.first;
-        int p = pair.second;
+        int const p = pair.second;
 
         // If the variable is marked as constant, its derivative is zero w.r.t t,
         // so this part of the product rule contributes zero.
@@ -530,7 +530,7 @@ differentiate_wrt_t(const Monomial<Coeff> &m) {
             // Fallback or error if Coeff(p) or multiplication fails.
             // This might happen for non-numeric Coeff types.
             // For basic types like double, complex, int, Coeff(p) is fine.
-            std::cerr << "Error: Coefficient type cannot be multiplied by power integer. " << e.what() << std::endl;
+            std::cerr << "Error: Coefficient type cannot be multiplied by power integer. " << e.what() << '\n';
             // Return zero or throw? Let's return zero poly for now.
             return Polynomial<Coeff>();
         }
@@ -633,8 +633,8 @@ operator*(const Variable &var, Polynomial<Coeff> p) { // Pass p by value
 template<typename Coeff = double>
 inline Polynomial<Coeff>
 operator+(const Variable &lhs, const Variable &rhs) {
-    Monomial<Coeff> m_lhs(Coeff(1), lhs, 1);
-    Monomial<Coeff> m_rhs(Coeff(1), rhs, 1);
+    Monomial<Coeff> const m_lhs(Coeff(1), lhs, 1);
+    Monomial<Coeff> const m_rhs(Coeff(1), rhs, 1);
     return Polynomial<Coeff>({ m_lhs, m_rhs }); // Constructor simplifies
 }
 
@@ -826,27 +826,27 @@ struct RationalFunction {
 
     // --- Operators ---
     RationalFunction<Coeff> operator+(const RationalFunction<Coeff> &other) const {
-        Polynomial<Coeff> new_num = numerator * other.denominator + other.numerator * denominator;
-        Polynomial<Coeff> new_den = denominator * other.denominator;
+        Polynomial<Coeff> const new_num = numerator * other.denominator + other.numerator * denominator;
+        Polynomial<Coeff> const new_den = denominator * other.denominator;
         return RationalFunction<Coeff>(new_num, new_den);
     }
     RationalFunction<Coeff> operator-(const RationalFunction<Coeff> &other) const {
-        Polynomial<Coeff> new_num = numerator * other.denominator - other.numerator * denominator;
-        Polynomial<Coeff> new_den = denominator * other.denominator;
+        Polynomial<Coeff> const new_num = numerator * other.denominator - other.numerator * denominator;
+        Polynomial<Coeff> const new_den = denominator * other.denominator;
         return RationalFunction<Coeff>(new_num, new_den);
     }
     RationalFunction<Coeff> operator*(const RationalFunction<Coeff> &other) const {
-        Polynomial<Coeff> new_num = numerator * other.numerator;
-        Polynomial<Coeff> new_den = denominator * other.denominator;
+        Polynomial<Coeff> const new_num = numerator * other.numerator;
+        Polynomial<Coeff> const new_den = denominator * other.denominator;
         return RationalFunction<Coeff>(new_num, new_den);
     }
     RationalFunction<Coeff> operator/(const RationalFunction<Coeff> &other) const {
-        RationalFunction<Coeff> temp_other = other;
+        RationalFunction<Coeff> const temp_other = other;
         if (temp_other.numerator.monomials.empty()) {
             throw std::runtime_error("Division by zero RationalFunction (numerator is zero polynomial).");
         }
-        Polynomial<Coeff> new_num = numerator * temp_other.denominator;
-        Polynomial<Coeff> new_den = denominator * temp_other.numerator;
+        Polynomial<Coeff> const new_num = numerator * temp_other.denominator;
+        Polynomial<Coeff> const new_den = denominator * temp_other.numerator;
         return RationalFunction<Coeff>(new_num, new_den);
     }
     RationalFunction<Coeff> &operator+=(const RationalFunction<Coeff> &other) {
@@ -878,7 +878,7 @@ RationalFunction<Coeff>
 operator+(const RationalFunction<Coeff> &rf, const Polynomial<Coeff> &poly) {
     // (num1*den2 + num2*den1) / (den1*den2)
     // Here den2 = 1
-    Polynomial<Coeff> new_num = rf.numerator + poly * rf.denominator;
+    Polynomial<Coeff> const new_num = rf.numerator + poly * rf.denominator;
     return RationalFunction<Coeff>(new_num, rf.denominator);
 }
 template<typename Coeff>
@@ -965,7 +965,7 @@ operator-(const Coeff &c, const RationalFunction<Coeff> &rf) {
 template<typename Coeff>
 RationalFunction<Coeff>
 operator*(const RationalFunction<Coeff> &rf, const Polynomial<Coeff> &poly) {
-    Polynomial<Coeff> new_num = rf.numerator * poly;
+    Polynomial<Coeff> const new_num = rf.numerator * poly;
     return RationalFunction<Coeff>(new_num, rf.denominator);
 }
 template<typename Coeff>
@@ -1010,14 +1010,14 @@ operator*(const Coeff &c, const RationalFunction<Coeff> &rf) {
 template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const RationalFunction<Coeff> &rf, const Polynomial<Coeff> &poly) {
-    Polynomial<Coeff> new_den = rf.denominator * poly;
+    Polynomial<Coeff> const new_den = rf.denominator * poly;
     return RationalFunction<Coeff>(rf.numerator, new_den);
 }
 // Poly / RF
 template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const Polynomial<Coeff> &poly, const RationalFunction<Coeff> &rf) {
-    Polynomial<Coeff> new_num = poly * rf.denominator;
+    Polynomial<Coeff> const new_num = poly * rf.denominator;
     return RationalFunction<Coeff>(new_num, rf.numerator);
 }
 // RF / Mono
@@ -1150,8 +1150,8 @@ std::ostream &
 operator<<(std::ostream &os, const RationalFunction<Coeff> &rf) {
     Polynomial<Coeff> one_poly(Monomial<Coeff>(Coeff(1)));
     one_poly.simplify();
-    bool den_is_one = (rf.denominator.monomials.size() == 1 && rf.denominator.monomials[0].vars.empty() &&
-                       rf.denominator.monomials[0].coeff == Coeff(1));
+    bool const den_is_one = (rf.denominator.monomials.size() == 1 && rf.denominator.monomials[0].vars.empty() &&
+                             rf.denominator.monomials[0].coeff == Coeff(1));
     if (den_is_one) {
         if (rf.numerator.monomials.size() > 1) {
             os << "(" << rf.numerator << ")";
@@ -1187,11 +1187,11 @@ RationalFunction<Coeff>
 differentiate_wrt_t(const RationalFunction<Coeff> &rf) {
     const Polynomial<Coeff> N = rf.numerator;
     const Polynomial<Coeff> D = rf.denominator;
-    Polynomial<Coeff> N_prime = differentiate_wrt_t(N);
-    Polynomial<Coeff> D_prime = differentiate_wrt_t(D);
+    Polynomial<Coeff> const N_prime = differentiate_wrt_t(N);
+    Polynomial<Coeff> const D_prime = differentiate_wrt_t(D);
     if (N_prime.monomials.empty() && D_prime.monomials.empty()) { return RationalFunction<Coeff>(); }
-    Polynomial<Coeff> new_num = N_prime * D - N * D_prime;
-    Polynomial<Coeff> new_den = D * D;
+    Polynomial<Coeff> const new_num = N_prime * D - N * D_prime;
+    Polynomial<Coeff> const new_den = D * D;
     return RationalFunction<Coeff>(new_num, new_den);
 }
 

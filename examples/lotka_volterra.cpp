@@ -31,39 +31,39 @@ auto dy_dt_poly = delta_var * x_var * y_var - gamma_var * y_var;
 // Observer functor to print state at intervals
 struct observer {
     void operator()(const state_type &state, double t) const {
-        std::cout << t << ", " << state[0] << ", " << state[1] << std::endl;
+        std::cout << t << ", " << state[0] << ", " << state[1] << '\n';
     }
 };
 
 int
 main() {
     // Set parameter values
-    std::map<Variable, double> parameters = {
+    std::map<Variable, double> const parameters = {
         { alpha_var, 1.1 }, { beta_var, 0.4 }, { delta_var, 0.4 }, { gamma_var, 0.1 }
     };
 
     // Define the state variables IN ORDER corresponding to the state vector
-    std::vector<Variable> state_vars = { x_var, y_var };
+    std::vector<Variable> const state_vars = { x_var, y_var };
 
     // Define the RHS polynomial equations IN ORDER
-    std::vector<RationalFunction<double>> equations = { dx_dt_poly, dy_dt_poly };
+    std::vector<RationalFunction<double>> const equations = { dx_dt_poly, dy_dt_poly };
 
     // Create the generic ODE system instance
-    RationalFunctionOdeSystem<double> system(equations, state_vars, parameters);
+    RationalFunctionOdeSystem<double> const system(equations, state_vars, parameters);
 
     // Set initial conditions
     state_type state = { 10.0, 10.0 }; // Initial x and y
 
     // Define time range and step size
-    double t_start = 0.0;
-    double t_end = 50.0;
-    double dt = 0.01;
+    double const t_start = 0.0;
+    double const t_end = 50.0;
+    double const dt = 0.01;
 
     // Choose a stepper
-    odeint::runge_kutta4<state_type> stepper;
+    odeint::runge_kutta4<state_type> const stepper;
 
     // Print header for output
-    std::cout << "t, x, y" << std::endl;
+    std::cout << "t, x, y" << '\n';
 
     // Integrate the system
     odeint::integrate_const(stepper, system, state, t_start, t_end, dt, observer());

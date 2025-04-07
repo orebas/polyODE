@@ -59,7 +59,7 @@ solve_ode_fixed_step_local(TTime T_target_scalar,
         TTime remaining_t_scalar = T_target_scalar - t_start;
         if (remaining_t_scalar > 1e-12) { stepper.do_step(system, state, t_start, remaining_t_scalar); }
     } catch (...) {
-        std::cerr << "ODE integration step failed. Returning zero state." << std::endl;
+        std::cerr << "ODE integration step failed. Returning zero state." << '\n';
         std::fill(state.begin(), state.end(), T(0.0));
     }
     return state;
@@ -113,8 +113,8 @@ template<typename Coeff>
 void
 EXPECT_RF_EQ(const RationalFunction<Coeff> &rf1, const RationalFunction<Coeff> &rf2) {
     // Equality means num1*den2 == num2*den1 (after simplification)
-    Polynomial<Coeff> lhs = rf1.numerator * rf2.denominator;
-    Polynomial<Coeff> rhs = rf2.numerator * rf1.denominator;
+    Polynomial<Coeff> const lhs = rf1.numerator * rf2.denominator;
+    Polynomial<Coeff> const rhs = rf2.numerator * rf1.denominator;
     EXPECT_POLY_EQ(lhs, rhs); // Use the polynomial comparison helper
 }
 

@@ -4,38 +4,38 @@
 #include <sstream>
 
 TEST(VariableTest, ConstructorAndAttributes) {
-    Variable v1; // Default
+    Variable const v1; // Default
     EXPECT_EQ(v1.name, "");
     EXPECT_EQ(v1.deriv_level, 0);
     EXPECT_FALSE(v1.is_constant);
 
-    Variable v2("x");
+    Variable const v2("x");
     EXPECT_EQ(v2.name, "x");
     EXPECT_EQ(v2.deriv_level, 0);
     EXPECT_FALSE(v2.is_constant);
 
-    Variable v3("y", 1);
+    Variable const v3("y", 1);
     EXPECT_EQ(v3.name, "y");
     EXPECT_EQ(v3.deriv_level, 1);
     EXPECT_FALSE(v3.is_constant);
 
-    Variable v4("k", 0, true);
+    Variable const v4("k", 0, true);
     EXPECT_EQ(v4.name, "k");
     EXPECT_EQ(v4.deriv_level, 0);
     EXPECT_TRUE(v4.is_constant);
 
-    Variable v5("a", 2, true);
+    Variable const v5("a", 2, true);
     EXPECT_EQ(v5.name, "a");
     EXPECT_EQ(v5.deriv_level, 2); // deriv_level can be non-zero even if const
     EXPECT_TRUE(v5.is_constant);
 }
 
 TEST(VariableTest, EqualityOperator) {
-    Variable x1("x");
-    Variable x2("x", 0, false);
-    Variable y1("y");
-    Variable x_dot("x", 1);
-    Variable x_const("x", 0, true);
+    Variable const x1("x");
+    Variable const x2("x", 0, false);
+    Variable const y1("y");
+    Variable const x_dot("x", 1);
+    Variable const x_const("x", 0, true);
 
     EXPECT_TRUE(x1 == x2);       // Same attributes
     EXPECT_FALSE(x1 == y1);      // Different name
@@ -46,12 +46,12 @@ TEST(VariableTest, EqualityOperator) {
 }
 
 TEST(VariableTest, LessThanOperator) {
-    Variable x("x");
-    Variable y("y");
-    Variable z("z");
-    Variable x_dot("x", 1);
-    Variable x_dotdot("x", 2);
-    Variable x_const("x", 0, true);
+    Variable const x("x");
+    Variable const y("y");
+    Variable const z("z");
+    Variable const x_dot("x", 1);
+    Variable const x_dotdot("x", 2);
+    Variable const x_const("x", 0, true);
 
     // Primary sort by name
     EXPECT_TRUE(x < y);
@@ -96,33 +96,33 @@ TEST(VariableTest, LessThanOperator) {
 TEST(VariableTest, StreamOutput) {
     std::stringstream ss;
 
-    Variable v_x("x");
+    Variable const v_x("x");
     ss.str("");
     ss << v_x;
     EXPECT_EQ(ss.str(), "x");
 
-    Variable v_y1("y", 1);
+    Variable const v_y1("y", 1);
     ss.str("");
     ss << v_y1;
     EXPECT_EQ(ss.str(), "dy/dt");
 
-    Variable v_z2("z", 2);
+    Variable const v_z2("z", 2);
     ss.str("");
     ss << v_z2;
     EXPECT_EQ(ss.str(), "d^2z/dt^2");
 
-    Variable v_a3("alpha", 3);
+    Variable const v_a3("alpha", 3);
     ss.str("");
     ss << v_a3;
     EXPECT_EQ(ss.str(), "d^3alpha/dt^3");
 
-    Variable v_k("k", 0, true);
+    Variable const v_k("k", 0, true);
     ss.str("");
     ss << v_k;
     EXPECT_EQ(ss.str(), "k");
 
     // Constant with deriv level (should just print name)
-    Variable v_c1("c", 1, true);
+    Variable const v_c1("c", 1, true);
     ss.str("");
     ss << v_c1;
     EXPECT_EQ(ss.str(), "c");

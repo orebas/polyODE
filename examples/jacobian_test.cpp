@@ -42,10 +42,10 @@ struct SimpleDecaySystemT {
 // Analytical solution: x(t) = x0 * exp(a*t), y(t) = y0 * exp(b*t)
 std::vector<double>
 analytical_solution(double t, const std::vector<double> &params) {
-    double a = params[PARAM_A];
-    double b = params[PARAM_B];
-    double x0 = params[PARAM_X0];
-    double y0 = params[PARAM_Y0];
+    double const a = params[PARAM_A];
+    double const b = params[PARAM_B];
+    double const x0 = params[PARAM_X0];
+    double const y0 = params[PARAM_Y0];
     return { x0 * std::exp(a * t), y0 * std::exp(b * t) };
 }
 
@@ -53,13 +53,13 @@ analytical_solution(double t, const std::vector<double> &params) {
 // Size is 2x4 (NUM_STATES x NUM_PARAMS)
 std::vector<std::vector<double>>
 analytical_jacobian(double T, const std::vector<double> &params) {
-    double a = params[PARAM_A];
-    double b = params[PARAM_B];
-    double x0 = params[PARAM_X0];
-    double y0 = params[PARAM_Y0];
+    double const a = params[PARAM_A];
+    double const b = params[PARAM_B];
+    double const x0 = params[PARAM_X0];
+    double const y0 = params[PARAM_Y0];
 
-    double exp_aT = std::exp(a * T);
-    double exp_bT = std::exp(b * T);
+    double const exp_aT = std::exp(a * T);
+    double const exp_bT = std::exp(b * T);
 
     std::vector<std::vector<double>> jacobian(NUM_STATES, std::vector<double>(NUM_PARAMS));
 
@@ -87,7 +87,7 @@ solve_ode_templated(double T_target_scalar, const T *const params) { // Take tar
     const T &x0 = params[PARAM_X0];
     const T &y0 = params[PARAM_Y0];
 
-    SimpleDecaySystemT<T> system(a, b);
+    SimpleDecaySystemT<T> const system(a, b);
     std::vector<T> state = { x0, y0 };
 
     typedef std::vector<T> state_type_T;
@@ -96,8 +96,8 @@ solve_ode_templated(double T_target_scalar, const T *const params) { // Take tar
 
     // Use double for time variables
     double t_start = 0.0;
-    double dt_fixed = 0.001;
-    int n_steps = static_cast<int>(T_target_scalar / dt_fixed);
+    double const dt_fixed = 0.001;
+    int const n_steps = static_cast<int>(T_target_scalar / dt_fixed);
 
     try {
         for (int i = 0; i < n_steps; ++i) {
@@ -106,13 +106,13 @@ solve_ode_templated(double T_target_scalar, const T *const params) { // Take tar
             t_start += dt_fixed;
         }
         // Calculate remaining time as double
-        double remaining_t_scalar = T_target_scalar - t_start;
+        double const remaining_t_scalar = T_target_scalar - t_start;
         if (remaining_t_scalar > 1e-12) {
             // Pass remaining time as double
             stepper.do_step(system, state, t_start, remaining_t_scalar);
         }
     } catch (...) { // Catch potential exceptions during stepping
-        std::cerr << "ODE integration step failed (potential Jet issue?). Returning zero state." << std::endl;
+        std::cerr << "ODE integration step failed (potential Jet issue?). Returning zero state." << '\n';
         state[STATE_X] = T(0.0);
         state[STATE_Y] = T(0.0);
     }
@@ -157,15 +157,15 @@ print_matrix(const std::string &title, const std::vector<std::vector<double>> &m
         std::cout << "  (empty)\n";
         return;
     }
-    size_t rows = matrix.size();
-    size_t cols = matrix[0].size();
+    size_t const rows = matrix.size();
+    size_t const cols = matrix[0].size();
     std::cout << std::fixed << std::setprecision(8);
     for (size_t i = 0; i < rows; ++i) {
         std::cout << "  [";
         for (size_t j = 0; j < cols; ++j) { std::cout << std::setw(14) << matrix[i][j] << (j == cols - 1 ? "" : ", "); }
         std::cout << "]\n";
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 }
 
 // Ceres Cost Function
@@ -196,13 +196,13 @@ main() {
     // Nominal parameters [a, b, x0, y0]
     double nominal_params_arr[NUM_PARAMS] = { 0.1, -0.2, 1.0, 2.0 };
     std::vector<double> nominal_params_vec(nominal_params_arr, nominal_params_arr + NUM_PARAMS);
-    double T = 2.0;
+    double const T = 2.0;
 
     std::cout << "Calculating Jacobians at T = " << T << " for parameters:\n";
     std::cout << "  a = " << nominal_params_vec[PARAM_A] << "\n";
     std::cout << "  b = " << nominal_params_vec[PARAM_B] << "\n";
     std::cout << "  x0= " << nominal_params_vec[PARAM_X0] << "\n";
-    std::cout << "  y0= " << nominal_params_vec[PARAM_Y0] << "\n" << std::endl;
+    std::cout << "  y0= " << nominal_params_vec[PARAM_Y0] << "\n" << '\n';
 
     // Calculate Analytical Jacobian
     auto jac_analytic = analytical_jacobian(T, nominal_params_vec);
@@ -230,7 +230,7 @@ main() {
     // Residuals are needed for evaluation, but we only care about Jacobian here
     std::vector<double> residuals(NUM_STATES);
 
-    bool success = cost_function->Evaluate(parameter_blocks.data(), residuals.data(), jacobian_blocks.data());
+    bool const success = cost_function->Evaluate(parameter_blocks.data(), residuals.data(), jacobian_blocks.data());
 
     if (success) {
         // Convert row-major Ceres output to our vector-of-vectors format
@@ -239,7 +239,7 @@ main() {
         }
         print_matrix("Ceres AutoDiff Jacobian", jac_ceres_vec);
     } else {
-        std::cerr << "Ceres Jacobian evaluation failed!" << std::endl;
+        std::cerr << "Ceres Jacobian evaluation failed!" << '\n';
     }
 
     delete cost_function;

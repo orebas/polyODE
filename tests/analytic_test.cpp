@@ -38,36 +38,36 @@ TEST(AnalyticTest, SimpleOscillator) {
     auto dy_dt_poly = Polynomial<double>(-x_var); // Use unary minus overload for Variable
 
     // No parameters needed for this system
-    std::map<Variable, double> parameters = {};
+    std::map<Variable, double> const parameters = {};
 
     // Define the state variables IN ORDER
-    std::vector<Variable> state_vars = { x_var, y_var };
+    std::vector<Variable> const state_vars = { x_var, y_var };
 
     // Define the RHS polynomial equations IN ORDER
     // Use RationalFunction for compatibility with the system class
-    std::vector<RationalFunction<double>> equations = { RationalFunction<double>(dx_dt_poly),
-                                                        RationalFunction<double>(dy_dt_poly) };
+    std::vector<RationalFunction<double>> const equations = { RationalFunction<double>(dx_dt_poly),
+                                                              RationalFunction<double>(dy_dt_poly) };
 
     // Create the generic ODE system instance
-    RationalFunctionOdeSystem<double> system(equations, state_vars, parameters);
+    RationalFunctionOdeSystem<double> const system(equations, state_vars, parameters);
 
     // Set initial conditions
-    double x0 = 1.0;
-    double y0 = 0.0;
+    double const x0 = 1.0;
+    double const y0 = 0.0;
     state_type state = { x0, y0 };
 
     // Define time range and step size for comparison points
-    double t_start = 0.0;
-    double t_end = 2.0 * M_PI;       // One full oscillation
-    double dt_report = t_end / 20.0; // Report 20 steps
-    double dt_integrate = 0.01;      // Integration step size guess
+    double const t_start = 0.0;
+    double const t_end = 2.0 * M_PI;       // One full oscillation
+    double const dt_report = t_end / 20.0; // Report 20 steps
+    double const dt_integrate = 0.01;      // Integration step size guess
 
     // Choose a stepper (Dormand-Prince 5 adaptive stepper)
     typedef odeint::runge_kutta_dopri5<state_type> error_stepper_type;
     typedef odeint::controlled_runge_kutta<error_stepper_type> controlled_stepper_type;
 
-    double abs_err = 1.0e-10; // Desired absolute error tolerance for integrator
-    double rel_err = 1.0e-10; // Desired relative error tolerance for integrator
+    double const abs_err = 1.0e-10; // Desired absolute error tolerance for integrator
+    double const rel_err = 1.0e-10; // Desired relative error tolerance for integrator
 
     auto stepper = odeint::make_controlled(abs_err, rel_err, error_stepper_type());
 
@@ -92,7 +92,7 @@ TEST(AnalyticTest, SimpleOscillator) {
         if (next_report_t > t_end) next_report_t = t_end;
 
         // Calculate the time interval for this integration step
-        double integration_interval = next_report_t - current_t;
+        double const integration_interval = next_report_t - current_t;
 
         // Integrate from current_t up to next_report_t using adaptive steps
         if (integration_interval > 1e-12) { // Avoid integrating zero interval

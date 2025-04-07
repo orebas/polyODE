@@ -7,48 +7,48 @@
 
 int
 main() {
-    std::cout << "--- Estimate IC and Parameter Example ---" << std::endl;
+    std::cout << "--- Estimate IC and Parameter Example ---" << '\n';
 
     // --- 1. Define the ODE System Symbolically ---
-    Variable x("x");
-    Variable k("k", 0, true); // Parameter k
+    Variable const x("x");
+    Variable const k("k", 0, true); // Parameter k
 
     // dx/dt = -k*x
-    Polynomial<double> Pk(k);
-    Polynomial<double> Px(x);
-    RationalFunction<double> rhs = Polynomial<double>() - Pk * Px;
+    Polynomial<double> const Pk(k);
+    Polynomial<double> const Px(x);
+    RationalFunction<double> const rhs = Polynomial<double>() - Pk * Px;
 
-    std::vector<Variable> state_vars = { x };
-    std::vector<RationalFunction<double>> equations = { rhs };
+    std::vector<Variable> const state_vars = { x };
+    std::vector<RationalFunction<double>> const equations = { rhs };
 
     // --- 2. Generate Synthetic Experimental Data ---
-    double true_k = 0.7;
-    double true_x0 = 10.0;
+    double const true_k = 0.7;
+    double const true_x0 = 10.0;
     ExperimentalData data;
     // Use slightly different times than the basic example
     data.times = { 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0 };
     data.measurements.resize(data.times.size());
-    std::cout << "Generating data with k=" << true_k << ", x0=" << true_x0 << std::endl;
-    std::cout << "Time\tMeasurement" << std::endl;
+    std::cout << "Generating data with k=" << true_k << ", x0=" << true_x0 << '\n';
+    std::cout << "Time\tMeasurement" << '\n';
     for (size_t i = 0; i < data.times.size(); ++i) {
-        double t = data.times[i];
-        double measurement = true_x0 * std::exp(-true_k * t);
+        double const t = data.times[i];
+        double const measurement = true_x0 * std::exp(-true_k * t);
         data.measurements[i] = { measurement };
-        std::cout << t << "\t" << measurement << std::endl;
+        std::cout << t << "\t" << measurement << '\n';
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 
     // --- 3. Define the Estimation Problem ---
 
     // Parameters to estimate
-    std::vector<Variable> params_to_estimate = { k };
+    std::vector<Variable> const params_to_estimate = { k };
 
     // Fixed parameters (none)
-    std::map<Variable, double> fixed_params = {};
+    std::map<Variable, double> const fixed_params = {};
 
     // Initial Conditions - x0 is now estimated
-    std::map<Variable, double> fixed_initial_conditions = {};
-    std::vector<Variable> initial_conditions_to_estimate = { x };
+    std::map<Variable, double> const fixed_initial_conditions = {};
+    std::vector<Variable> const initial_conditions_to_estimate = { x };
 
     // Create the problem instance
     try {
@@ -67,20 +67,20 @@ main() {
         // Order matters: params first, then ICs
         std::vector<double> initial_guess = { 0.5, 8.0 };
         std::cout << "Starting estimation with initial guess k=" << initial_guess[0] << ", x0=" << initial_guess[1]
-                  << std::endl;
+                  << '\n';
 
-        bool success = problem.solve(initial_guess);
+        bool const success = problem.solve(initial_guess);
 
         if (success) {
-            std::cout << "\nEstimation successful!" << std::endl;
-            std::cout << "Estimated k  = " << initial_guess[0] << " (True = " << true_k << ")" << std::endl;
-            std::cout << "Estimated x0 = " << initial_guess[1] << " (True = " << true_x0 << ")" << std::endl;
+            std::cout << "\nEstimation successful!" << '\n';
+            std::cout << "Estimated k  = " << initial_guess[0] << " (True = " << true_k << ")" << '\n';
+            std::cout << "Estimated x0 = " << initial_guess[1] << " (True = " << true_x0 << ")" << '\n';
         } else {
-            std::cout << "\nEstimation failed or solution not usable." << std::endl;
+            std::cout << "\nEstimation failed or solution not usable." << '\n';
         }
 
     } catch (const std::exception &e) {
-        std::cerr << "Error creating or solving estimation problem: " << e.what() << std::endl;
+        std::cerr << "Error creating or solving estimation problem: " << e.what() << '\n';
         return 1;
     }
 

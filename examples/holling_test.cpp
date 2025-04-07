@@ -57,7 +57,7 @@ static_assert(std::is_same_v<decltype(dy_dt_rf), RationalFunction<double>>,
 struct holling_observer {
     void operator()(const state_type &state, double t) const {
         std::cout << std::fixed << std::setprecision(6) << std::setw(12) << t << std::setw(15) << state[0]
-                  << std::setw(15) << state[1] << std::endl;
+                  << std::setw(15) << state[1] << '\n';
     }
 };
 
@@ -66,38 +66,38 @@ struct holling_observer {
 int
 main() {
     // Set parameter values (chosen to potentially show oscillations)
-    std::map<Variable, double> parameters = { { r_var, 1.0 }, { K_var, 10.0 }, { a_var, 1.0 },
-                                              { b_var, 0.2 }, { c_var, 0.5 },  { d_var, 0.2 } };
+    std::map<Variable, double> const parameters = { { r_var, 1.0 }, { K_var, 10.0 }, { a_var, 1.0 },
+                                                    { b_var, 0.2 }, { c_var, 0.5 },  { d_var, 0.2 } };
 
     // Define the state variables IN ORDER
-    std::vector<Variable> state_vars = { x_var, y_var };
+    std::vector<Variable> const state_vars = { x_var, y_var };
 
     // Define the RHS RationalFunction equations IN ORDER
-    std::vector<RationalFunction<double>> equations = { dx_dt_rf, dy_dt_rf };
+    std::vector<RationalFunction<double>> const equations = { dx_dt_rf, dy_dt_rf };
 
     // Create the generic ODE system instance (using the renamed class)
-    RationalFunctionOdeSystem<double> system(equations, state_vars, parameters);
+    RationalFunctionOdeSystem<double> const system(equations, state_vars, parameters);
 
     // Set initial conditions
     state_type state = { 5.0, 2.0 }; // Initial prey (x) and predator (y)
 
     // Define time range and integration step
-    double t_start = 0.0;
-    double t_end = 100.0;       // Longer time to see dynamics
-    double dt_integrate = 0.01; // Initial step size guess for adaptive stepper
-    double dt_observe = 0.5;    // How often to observe/print
+    double const t_start = 0.0;
+    double const t_end = 100.0;       // Longer time to see dynamics
+    double const dt_integrate = 0.01; // Initial step size guess for adaptive stepper
+    double const dt_observe = 0.5;    // How often to observe/print
 
     // Choose an adaptive stepper (e.g., dopri5)
     typedef odeint::runge_kutta_dopri5<state_type> error_stepper_type;
     typedef odeint::controlled_runge_kutta<error_stepper_type> controlled_stepper_type;
-    double abs_err = 1.0e-8;
-    double rel_err = 1.0e-8;
+    double const abs_err = 1.0e-8;
+    double const rel_err = 1.0e-8;
     auto stepper = odeint::make_controlled(abs_err, rel_err, error_stepper_type());
 
     // --- Output Header ---
-    std::cout << "Holling Type II Simulation Results" << std::endl;
-    std::cout << std::setw(12) << "Time" << std::setw(15) << "Prey (x)" << std::setw(15) << "Predator (y)" << std::endl;
-    std::cout << std::string(42, '-') << std::endl;
+    std::cout << "Holling Type II Simulation Results" << '\n';
+    std::cout << std::setw(12) << "Time" << std::setw(15) << "Prey (x)" << std::setw(15) << "Predator (y)" << '\n';
+    std::cout << std::string(42, '-') << '\n';
 
     // --- Integrate and Observe at Fixed Intervals ---
     state = { 5.0, 2.0 }; // Reset state
@@ -108,7 +108,7 @@ main() {
         odeint::integrate_times(
           stepper, system, state, observe_times.begin(), observe_times.end(), dt_integrate, holling_observer());
     } catch (const std::exception &e) {
-        std::cerr << "\nError during integration: " << e.what() << std::endl;
+        std::cerr << "\nError during integration: " << e.what() << '\n';
         return 1;
     }
 

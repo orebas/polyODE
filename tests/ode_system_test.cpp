@@ -37,11 +37,11 @@ TEST_F(OdeSystemTest, ConstructorValid) {
 
 TEST_F(OdeSystemTest, ConstructorThrowsSizeMismatch) {
     // Equations size != state_vars size
-    std::vector<RationalFunction<double>> wrong_size_eqs = { eq_x1 };
+    std::vector<RationalFunction<double>> const wrong_size_eqs = { eq_x1 };
     EXPECT_THROW(
       { RationalFunctionOdeSystem<double> system(wrong_size_eqs, state_vars1, parameters1); }, std::invalid_argument);
 
-    std::vector<Variable> wrong_size_vars = { x };
+    std::vector<Variable> const wrong_size_vars = { x };
     EXPECT_THROW(
       { RationalFunctionOdeSystem<double> system(equations1, wrong_size_vars, parameters1); }, std::invalid_argument);
 }
@@ -57,8 +57,8 @@ TEST_F(OdeSystemTest, EvaluateOperator) {
     // dx/dt = y = 3.0
     // dy/dt = -x + k*y = -2.0 + 0.1 * 3.0 = -2.0 + 0.3 = -1.7
 
-    double expected_dx_dt = 3.0;
-    double expected_dy_dt = -1.7;
+    double const expected_dx_dt = 3.0;
+    double const expected_dy_dt = -1.7;
 
     EXPECT_DOUBLE_EQ(dxdt1[0], expected_dx_dt);
     EXPECT_DOUBLE_EQ(dxdt1[1], expected_dy_dt);
@@ -66,16 +66,16 @@ TEST_F(OdeSystemTest, EvaluateOperator) {
 
 TEST_F(OdeSystemTest, EvaluateOperatorMissingParameter) {
     // Create a system where a parameter used in equations is NOT provided
-    RationalFunction<double> eq_z = Polynomial<double>(k) * Polynomial<double>(x); // dz/dt = k*x
-    std::vector<Variable> sv = { z };
-    std::vector<RationalFunction<double>> eqs = { eq_z };
-    std::map<Variable, double> params = {}; // Empty parameters!
+    RationalFunction<double> const eq_z = Polynomial<double>(k) * Polynomial<double>(x); // dz/dt = k*x
+    std::vector<Variable> const sv = { z };
+    std::vector<RationalFunction<double>> const eqs = { eq_z };
+    std::map<Variable, double> const params = {}; // Empty parameters!
 
     RationalFunctionOdeSystem<double> system_missing_param(eqs, sv, params);
 
-    std::vector<double> state_z = { 5.0 }; // z=5
+    std::vector<double> const state_z = { 5.0 }; // z=5
     std::vector<double> dxdt_z;            // Output
-    double t = 0.0;
+    double const t = 0.0;
 
     // The operator() internally calls evaluate, which needs k. Should throw.
     EXPECT_THROW(system_missing_param(state_z, dxdt_z, t), std::runtime_error);
@@ -89,14 +89,14 @@ TEST_F(OdeSystemTest, EvaluateOperatorMissingStateVarInMap) {
     // odeint (which provides the full state vector), but tests internal robustness.
 
     // Example: dx/dt = y; dy/dt = -x
-    RationalFunction<double> eq1(y);
-    RationalFunction<double> eq2 = Polynomial<double>() - Polynomial<double>(x);
-    std::vector<Variable> sv = { x, y };
-    std::vector<RationalFunction<double>> eqs = { eq1, eq2 };
-    std::map<Variable, double> params = {};
+    RationalFunction<double> const eq1(y);
+    RationalFunction<double> const eq2 = Polynomial<double>() - Polynomial<double>(x);
+    std::vector<Variable> const sv = { x, y };
+    std::vector<RationalFunction<double>> const eqs = { eq1, eq2 };
+    std::map<Variable, double> const params = {};
     RationalFunctionOdeSystem<double> sys(eqs, sv, params);
 
-    std::vector<double> state = { 1.0, 2.0 }; // x=1, y=2
+    std::vector<double> const state = { 1.0, 2.0 }; // x=1, y=2
     std::vector<double> deriv_out;
 
     // This should work correctly
@@ -113,9 +113,9 @@ TEST_F(OdeSystemTest, EvaluateOperatorMissingStateVarInMap) {
 
 TEST_F(OdeSystemTest, ConstructorThrowsVariableIsBothStateAndParam) {
     // Define k as both a state variable and a parameter
-    std::vector<Variable> sv = { x, k };                          // k is also state var
-    std::vector<RationalFunction<double>> eqs = { eq_x1, eq_y1 }; // Use equations that depend on k
-    std::map<Variable, double> params = { { k, 0.5 } };           // k is also param
+    std::vector<Variable> const sv = { x, k };                          // k is also state var
+    std::vector<RationalFunction<double>> const eqs = { eq_x1, eq_y1 }; // Use equations that depend on k
+    std::map<Variable, double> const params = { { k, 0.5 } };           // k is also param
 
     // Construction should throw because k cannot be both
     EXPECT_THROW({ RationalFunctionOdeSystem<double> system(eqs, sv, params); }, std::invalid_argument);
@@ -128,7 +128,7 @@ TEST_F(OdeSystemTest, EvaluateOperatorWithParameterChange) {
     EXPECT_DOUBLE_EQ(dxdt1[1], -1.7); // -x + 0.1*y = -2 + 0.3
 
     // Create a new system instance with different parameter value
-    std::map<Variable, double> params2 = { { k, 0.5 } };
+    std::map<Variable, double> const params2 = { { k, 0.5 } };
     RationalFunctionOdeSystem<double> system2{ equations1, state_vars1, params2 };
 
     // Evaluate with the new system

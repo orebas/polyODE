@@ -14,32 +14,32 @@ TEST(ExponentialDecayTest, NumericalVsAnalytical) {
     // Analytical solution: x(t) = x0 * exp(-k*t)
 
     // Define system
-    Polynomial<double> Px(x);
-    Polynomial<double> Pk(k);                                      // k is defined in test_utils.hpp
-    RationalFunction<double> rhs = Polynomial<double>() - Pk * Px; // -k*x
+    Polynomial<double> const Px(x);
+    Polynomial<double> const Pk(k);                                      // k is defined in test_utils.hpp
+    RationalFunction<double> const rhs = Polynomial<double>() - Pk * Px; // -k*x
 
-    std::vector<Variable> state_vars = { x };
-    std::vector<RationalFunction<double>> equations = { rhs };
+    std::vector<Variable> const state_vars = { x };
+    std::vector<RationalFunction<double>> const equations = { rhs };
     double k_val = 0.5;
-    std::map<Variable, double> parameters = { { k, k_val } };
+    std::map<Variable, double> const parameters = { { k, k_val } };
 
-    RationalFunctionOdeSystem<double> system(equations, state_vars, parameters);
+    RationalFunctionOdeSystem<double> const system(equations, state_vars, parameters);
 
     // Initial condition
-    double x0 = 1.0;
+    double const x0 = 1.0;
     std::vector<double> state = { x0 };
 
     // Time settings
-    double t_start = 0.0;
-    double t_end = 5.0;
-    double dt_integrate = 0.01; // Integration step guess
-    double dt_report = 0.5;     // How often to check against analytical
+    double const t_start = 0.0;
+    double const t_end = 5.0;
+    double const dt_integrate = 0.01; // Integration step guess
+    double const dt_report = 0.5;     // How often to check against analytical
 
     // Stepper
     typedef std::vector<double> state_type;
     typedef odeint::runge_kutta_dopri5<state_type> error_stepper_type;
-    double abs_err = 1.0e-8;
-    double rel_err = 1.0e-8;
+    double const abs_err = 1.0e-8;
+    double const rel_err = 1.0e-8;
     auto stepper = odeint::make_controlled(abs_err, rel_err, error_stepper_type());
 
     // Integration loop and comparison
@@ -48,7 +48,7 @@ TEST(ExponentialDecayTest, NumericalVsAnalytical) {
 
     while (current_t <= t_end + dt_integrate / 2.0) {
         // Calculate analytical solution
-        double analytical_x = x0 * std::exp(-k_val * current_t);
+        double const analytical_x = x0 * std::exp(-k_val * current_t);
 
         // Compare numerical (current state[0]) vs analytical
         EXPECT_NEAR(state[0], analytical_x, test_tolerance) << "Mismatch at t = " << current_t;
@@ -57,8 +57,8 @@ TEST(ExponentialDecayTest, NumericalVsAnalytical) {
         if (current_t >= t_end - dt_integrate / 2.0) break;
 
         // Integrate to next report time
-        double next_report_t = std::min(current_t + dt_report, t_end);
-        double integration_interval = next_report_t - current_t;
+        double const next_report_t = std::min(current_t + dt_report, t_end);
+        double const integration_interval = next_report_t - current_t;
 
         if (integration_interval > 1e-12) {
             ASSERT_NO_THROW({

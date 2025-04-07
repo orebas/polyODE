@@ -15,7 +15,7 @@ template<typename Coeff>
 void
 print_results(const typename ODESystem<Coeff>::ResultsType &results) {
     if (results.empty() || results.find("time") == results.end() || results.at("time").empty()) {
-        std::cout << "No results to print." << std::endl;
+        std::cout << "No results to print." << '\n';
         return;
     }
 
@@ -27,14 +27,14 @@ print_results(const typename ODESystem<Coeff>::ResultsType &results) {
     for (const auto &pair : results) {
         if (pair.first != "time") { std::cout << std::setw(15) << pair.first; }
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 
     // Print dashed line separator
     int total_width = 12;
     for (const auto &pair : results) {
         if (pair.first != "time") { total_width += 15; }
     }
-    std::cout << std::string(total_width, '-') << std::endl;
+    std::cout << std::string(total_width, '-') << '\n';
 
     // Print data rows
     std::cout << std::fixed << std::setprecision(6);
@@ -49,7 +49,7 @@ print_results(const typename ODESystem<Coeff>::ResultsType &results) {
                 }
             }
         }
-        std::cout << std::endl;
+        std::cout << '\n';
     }
 }
 
@@ -115,12 +115,12 @@ class HollingODESystemTest : public ::testing::Test {
         ASSERT_TRUE(results.count("Holling Term"));
 
         ASSERT_FALSE(results.at("time").empty());
-        size_t expected_points = static_cast<size_t>(std::floor((t_end - t_start) / dt_observe)) + 1;
+        size_t const expected_points = static_cast<size_t>(std::floor((t_end - t_start) / dt_observe)) + 1;
         // Allow for slight variations due to floating point end condition
         ASSERT_GE(results.at("time").size(), expected_points - 1);
         ASSERT_LE(results.at("time").size(), expected_points + 1);
 
-        size_t n_points = results.at("time").size();
+        size_t const n_points = results.at("time").size();
         ASSERT_GT(n_points, 0); // Should have at least one point
 
         for (const auto &pair : results) {
@@ -132,16 +132,16 @@ class HollingODESystemTest : public ::testing::Test {
 // Test case for a single simulation run using the fixture
 TEST_F(HollingODESystemTest, SingleSimulationRun) {
     // Parameter values
-    std::map<Variable, Coeff> parameter_values = { { r_var, 1.0 }, { K_var, 10.0 }, { a_var, 1.0 },
-                                                   { b_var, 0.2 }, { c_var, 0.5 },  { d_var, 0.2 } };
+    std::map<Variable, Coeff> const parameter_values = { { r_var, 1.0 }, { K_var, 10.0 }, { a_var, 1.0 },
+                                                         { b_var, 0.2 }, { c_var, 0.5 },  { d_var, 0.2 } };
 
     // Initial conditions
-    StateType initial_conditions = { 5.0, 2.0 }; // x=5, y=2
+    StateType const initial_conditions = { 5.0, 2.0 }; // x=5, y=2
 
     // Simulation time settings
-    double t_start = 0.0;
-    double t_end = 100.0;
-    double dt_observe = 0.5;
+    double const t_start = 0.0;
+    double const t_end = 100.0;
+    double const dt_observe = 0.5;
 
     typename ODESystem<Coeff>::ResultsType results;
     ASSERT_NO_THROW({
@@ -155,16 +155,16 @@ TEST_F(HollingODESystemTest, SingleSimulationRun) {
 
 // Test case for a batch simulation run using the fixture
 TEST_F(HollingODESystemTest, BatchSimulationRun) {
-    std::vector<StateType> ic_list = { { 5.0, 2.0 }, { 1.0, 1.0 }, { 9.0, 4.0 } };
-    std::map<Variable, Coeff> base_params = { { r_var, 1.0 }, { K_var, 10.0 }, { a_var, 1.0 },
-                                              { b_var, 0.2 }, { c_var, 0.5 },  { d_var, 0.2 } };
-    std::map<Variable, Coeff> varied_params = { { r_var, 1.2 }, { K_var, 15.0 }, { a_var, 0.8 },
-                                                { b_var, 0.3 }, { c_var, 0.6 },  { d_var, 0.25 } };
-    std::vector<std::map<Variable, Coeff>> param_list = { base_params, base_params, varied_params };
+    std::vector<StateType> const ic_list = { { 5.0, 2.0 }, { 1.0, 1.0 }, { 9.0, 4.0 } };
+    std::map<Variable, Coeff> const base_params = { { r_var, 1.0 }, { K_var, 10.0 }, { a_var, 1.0 },
+                                                    { b_var, 0.2 }, { c_var, 0.5 },  { d_var, 0.2 } };
+    std::map<Variable, Coeff> const varied_params = { { r_var, 1.2 }, { K_var, 15.0 }, { a_var, 0.8 },
+                                                      { b_var, 0.3 }, { c_var, 0.6 },  { d_var, 0.25 } };
+    std::vector<std::map<Variable, Coeff>> const param_list = { base_params, base_params, varied_params };
 
-    double t_start = 0.0;
-    double t_end = 50.0; // Shorter time for batch
-    double dt_observe = 1.0;
+    double const t_start = 0.0;
+    double const t_end = 50.0; // Shorter time for batch
+    double const dt_observe = 1.0;
 
     std::vector<typename ODESystem<Coeff>::ResultsType> batch_results;
     ASSERT_NO_THROW({

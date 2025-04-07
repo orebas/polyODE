@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # --- Sanitizers (ASan/UBSan) ---
-option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" ON)
 if(ENABLE_SANITIZERS)
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
         message(STATUS "Sanitizers enabled.")
@@ -34,26 +34,27 @@ if(CLANGTIDY_EXE)
     # Remove the automatic execution during build:
     # set(CMAKE_CXX_CLANG_TIDY "${CLANGTIDY_EXE}")
 
-    # Define a custom target to run clang-tidy on demand
-    file(GLOB_RECURSE ALL_CXX_SOURCES
-        RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
-        "src/*.cpp"
-        "tests/*.cpp"
-        "examples/*.cpp"
-    )
-
+    # Define a custom target to run clang-tidy on demand using the script
     add_custom_target(check-tidy
         # Use the shell script to run clang-tidy
-        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/run_clang_tidy.sh
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMENT "Running clang-tidy static analysis..."
+        # Pass PATH using cmake -E env to ensure clang-tidy is found by the script if needed
+        COMMAND ${CMAKE_COMMAND} -E env PATH="$ENV{PATH}" ${CMAKE_CURRENT_SOURCE_DIR}/run_clang_tidy.sh
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} # Run script from project root
+        COMMENT "Running clang-tidy static analysis via script (report in clang-tidy-report.txt)"
+        VERBATIM
     )
+    # No explicit dependency needed here as the script handles finding compile_commands.json itself.
+    # The script generates the report file in the directory it's run from (project root).
+
+    # Diagnostic target removed.
+
 else()
     message(WARNING "clang-tidy not found. Static analysis target 'check-tidy' will not be available.")
     # Define a dummy target if clang-tidy is not found
     add_custom_target(check-tidy
         COMMAND ${CMAKE_COMMAND} -E echo "clang-tidy not found, skipping static analysis."
     )
+    # Dummy diagnostic target removed.
 endif()
 
 # Include directories

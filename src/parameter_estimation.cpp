@@ -38,13 +38,14 @@ ParameterEstimationProblem::ParameterEstimationProblem(const std::vector<Rationa
         throw std::invalid_argument("Must specify at least one parameter or initial condition to estimate.");
     }
     // Check that all state variables have an initial condition (either fixed or estimated)
-    size_t total_ics = fixed_initial_conditions_.size() + initial_conditions_to_estimate_.size();
+    size_t const total_ics = fixed_initial_conditions_.size() + initial_conditions_to_estimate_.size();
     if (total_ics != num_states_) {
         throw std::invalid_argument(
           "Total number of fixed and estimated initial conditions must match number of state variables.");
     }
     // Check for overlap between fixed and estimated ICs
-    std::set<Variable> estimated_ic_set(initial_conditions_to_estimate_.begin(), initial_conditions_to_estimate_.end());
+    std::set<Variable> const estimated_ic_set(initial_conditions_to_estimate_.begin(),
+                                              initial_conditions_to_estimate_.end());
     for (const auto &pair : fixed_initial_conditions_) {
         if (estimated_ic_set.count(pair.first)) {
             throw std::invalid_argument("Variable cannot have both fixed and estimated initial condition: " +
@@ -98,7 +99,7 @@ ParameterEstimationProblem::solve(std::vector<double> &parameter_values) {
     if (parameter_values.size() != num_total_estimated_) {
         std::cerr << "Error: Initial guess size (" << parameter_values.size()
                   << ") must match total number of estimated parameters and initial conditions ("
-                  << num_total_estimated_ << ")." << std::endl;
+                  << num_total_estimated_ << ")." << '\n';
         return false;
     }
 
@@ -129,7 +130,7 @@ ParameterEstimationProblem::solve(std::vector<double> &parameter_values) {
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
 
-    std::cout << summary.FullReport() << std::endl;
+    std::cout << summary.FullReport() << '\n';
 
     return summary.IsSolutionUsable();
 }

@@ -73,7 +73,7 @@ solve_ode_fixed_step(double T_target_scalar,
         double remaining_t_scalar = T_target_scalar - t_start;
         if (remaining_t_scalar > 1e-12) { stepper.do_step(system, state, t_start, remaining_t_scalar); }
     } catch (...) {
-        std::cerr << "ODE integration step failed. Returning zero state." << std::endl;
+        std::cerr << "ODE integration step failed. Returning zero state." << '\n';
         std::fill(state.begin(), state.end(), T(0.0));
     }
     return state;
@@ -251,8 +251,7 @@ ODECeresCostFunctor::operator()(const T *const *parameters, T *residuals) const 
                 }
             }
             if (!found_estimated_ic) {
-                std::cerr << "Error: Could not find initial condition for state variable " << state_var.name
-                          << std::endl;
+                std::cerr << "Error: Could not find initial condition for state variable " << state_var.name << '\n';
                 return false;
             }
         }

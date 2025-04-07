@@ -46,7 +46,7 @@ class RationalFunctionOdeSystem {
         // Check that state variables are not marked constant (parameters should be)
         for (const auto &sv : state_variables) {
             if (sv.is_constant) {
-                std::cerr << "Warning: State variable '" << sv << "' is marked as constant." << std::endl;
+                std::cerr << "Warning: State variable '" << sv << "' is marked as constant." << '\n';
             }
         }
         // Check that parameter variables ARE marked constant
