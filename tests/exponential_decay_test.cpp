@@ -54,7 +54,7 @@ TEST(ExponentialDecayTest, NumericalVsAnalytical) {
         EXPECT_NEAR(state[0], analytical_x, test_tolerance) << "Mismatch at t = " << current_t;
 
         // Check if done
-        if (current_t >= t_end - dt_integrate / 2.0) break;
+        if (current_t >= t_end - dt_integrate / 2.0) { break; }
 
         // Integrate to next report time
         double const next_report_t = std::min(current_t + dt_report, t_end);

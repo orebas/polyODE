@@ -1,5 +1,6 @@
 # Build directories
 build/
+build2/
 cmake-build*/
 inspo/
 repomix*
@@ -16,6 +17,7 @@ repomix*
 CMakeCache.txt
 CMakeFiles/
 compile_commands.json
+.cache/
 
 # IDE files
 .vscode/

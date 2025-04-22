@@ -46,14 +46,14 @@ TEST(PolynomialTest, Simplify) {
     Monomial<double> const m1(3.0, { { x, 1 } });  // 3x
     Monomial<double> const m2(2.0, { { y, 1 } });  // 2y
     Monomial<double> const m3(-1.0, { { x, 1 } }); // -x
-    Polynomial<double> p({ m1, m2, m3 });    // 3x + 2y - x -> simplify -> 2x + 2y
+    Polynomial<double> p({ m1, m2, m3 });          // 3x + 2y - x -> simplify -> 2x + 2y
     ASSERT_EQ(p.monomials.size(), 2);
     EXPECT_EQ(p.monomials[0].coeff, 2.0); // 2x
     EXPECT_EQ(p.monomials[1].coeff, 2.0); // 2y
 
     // Remove zero terms
     Monomial<double> const m4(0.0, { { z, 1 } }); // 0z
-    Polynomial<double> p_with_zero({ m1, m4 }); // 3x + 0z -> 3x
+    Polynomial<double> p_with_zero({ m1, m4 });   // 3x + 0z -> 3x
     ASSERT_EQ(p_with_zero.monomials.size(), 1);
     EXPECT_EQ(p_with_zero.monomials[0].coeff, 3.0);
     EXPECT_EQ(p_with_zero.monomials[0].vars.at(x), 1);
@@ -90,7 +90,7 @@ TEST(PolynomialTest, Arithmetic) {
 
     // Monomial + Polynomial
     Polynomial<double> const res_mp = m_x2 + p2; // 2x^2 + 2y + 3
-    EXPECT_POLY_EQ(res_mp, expected_pm);   // Should be same as p+m
+    EXPECT_POLY_EQ(res_mp, expected_pm);         // Should be same as p+m
 
     // Polynomial - Polynomial
     Polynomial<double> const p3(Monomial<double>(1.0, x)); // x
@@ -212,6 +212,7 @@ TEST(PolynomialTest, StreamOutput) {
     // Let's assume simplify sorts by variable map <:
     // {} < {x:2} < {y:1}
     // Output: 5 + -1*x^2 + 2*y
+    ss << p_multi;
     EXPECT_EQ(ss.str(), "5 + -1*x^2 + 2*y");
 }
 

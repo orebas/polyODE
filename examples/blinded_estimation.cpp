@@ -1,3 +1,5 @@
+#include "observable.hpp"
+#include "observed_ode_system.hpp"
 #include "parameter_estimation.hpp"
 #include "polynomial.hpp"
 #include <cmath>
@@ -30,7 +32,17 @@ main() {
     RationalFunction<double> const y_rhs = Pb * Py;
 
     std::vector<Variable> const state_vars = { x, y };
+    std::vector<Variable> const params = { a, b }; // Define parameter vector
     std::vector<RationalFunction<double>> const equations = { x_rhs, y_rhs };
+
+    // Define observables - x and y are our observables
+    poly_ode::Observable x_obs("x_obs");
+    poly_ode::Observable y_obs("y_obs");
+    std::map<poly_ode::Observable, RationalFunction<double>> obs_defs = { { x_obs, RationalFunction<double>(Px) },
+                                                                          { y_obs, RationalFunction<double>(Py) } };
+
+    // Create the observed system
+    poly_ode::ObservedOdeSystem system(equations, state_vars, params, obs_defs);
 
     // --- 2. Generate Synthetic Experimental Data with Noise ---
     // True parameter values (hidden from estimation)
@@ -45,9 +57,12 @@ main() {
     std::normal_distribution<> noise(0.0, 0.001); // 0.1% relative noise (sigma = 0.001)
 
     // Create data points
-    ExperimentalData data;
+    poly_ode::ExperimentalData data;
     data.times = { 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 2.5, 3.0 };
-    data.measurements.resize(data.times.size());
+
+    // Initialize measurement vectors
+    data.measurements[x_obs] = std::vector<double>(data.times.size());
+    data.measurements[y_obs] = std::vector<double>(data.times.size());
 
     std::cout << "\nGenerating synthetic data with true values:" << '\n';
     std::cout << "a = " << true_a << ", b = " << true_b << ", x0 = " << true_x0 << ", y0 = " << true_y0 << '\n';
@@ -68,7 +83,10 @@ main() {
         double const x_noisy = x_exact * (1.0 + noise(gen));
         double const y_noisy = y_exact * (1.0 + noise(gen));
 
-        data.measurements[i] = { x_noisy, y_noisy };
+        // Store measurements for each observable
+        data.measurements[x_obs][i] = x_noisy;
+        data.measurements[y_obs][i] = y_noisy;
+
         std::cout << std::setw(10) << t << std::setw(15) << x_noisy << std::setw(15) << y_noisy << '\n';
     }
     std::cout << '\n';
@@ -86,14 +104,13 @@ main() {
 
     // Create the problem instance
     try {
-        ParameterEstimationProblem problem(equations,
-                                           state_vars,
-                                           params_to_estimate,
-                                           fixed_params,
-                                           fixed_initial_conditions,
-                                           initial_conditions_to_estimate,
-                                           data,
-                                           0.01); // dt for ODE solver
+        poly_ode::ParameterEstimationProblem problem(system,
+                                                     params_to_estimate,
+                                                     fixed_params,
+                                                     initial_conditions_to_estimate,
+                                                     fixed_initial_conditions,
+                                                     data,
+                                                     0.01); // dt for ODE solver
 
         // --- 4. Solve ---
         // Deliberately use incorrect initial guesses (different from true values)

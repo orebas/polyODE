@@ -3,6 +3,7 @@
 #include <iostream>
 
 // ---- Main Driver ----
+/*
 int
 main() {
     // --- Examples with double coefficients ---
@@ -72,7 +73,7 @@ main() {
         Complex const c1(2.0, 3.0);  // 2 + 3i
         Complex const c2(0.0, -1.0); // -i
         Complex const c3(1.0, 0.0);  // 1
-        Complex const c4 = c1 * c2;  // (2+3i)*(-i) = 3 - 2i
+//        Complex const c4 = c1 * c2;  // (2+3i)*(-i) = 3 - 2i
 
         Monomial<Complex> const mc1(c1, x, 2);
         Monomial<Complex> const mc2(c2, y);
@@ -138,3 +139,4 @@ main() {
 
     return 0;
 }
+*/

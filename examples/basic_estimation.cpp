@@ -1,3 +1,5 @@
+#include "observable.hpp"
+#include "observed_ode_system.hpp"
 #include "parameter_estimation.hpp"
 #include "polynomial.hpp"
 #include <cmath>
@@ -19,14 +21,25 @@ main() {
     RationalFunction<double> const rhs = Polynomial<double>() - Pk * Px;
 
     std::vector<Variable> const state_vars = { x };
+    std::vector<Variable> const params = { k }; // Define parameter vector
     std::vector<RationalFunction<double>> const equations = { rhs };
+
+    // Define observables - in this case, x itself is our observable
+    poly_ode::Observable x_obs("x_obs");
+    std::map<poly_ode::Observable, RationalFunction<double>> obs_defs = { { x_obs, RationalFunction<double>(Px) } };
+
+    // Create the observed system
+    poly_ode::ObservedOdeSystem system(equations, state_vars, params, obs_defs);
 
     // --- 2. Generate Synthetic Experimental Data ---
     double const true_k = 0.7;
     double true_x0 = 10.0;
-    ExperimentalData data;
+    poly_ode::ExperimentalData data;
     data.times = { 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0 };
-    data.measurements.resize(data.times.size());
+
+    // Initialize the measurements for the x_obs observable
+    data.measurements[x_obs] = std::vector<double>(data.times.size());
+
     std::cout << "Generating data with k=" << true_k << ", x0=" << true_x0 << '\n';
     std::cout << "Time\tMeasurement" << '\n';
     for (size_t i = 0; i < data.times.size(); ++i) {
@@ -34,7 +47,7 @@ main() {
         double const measurement = true_x0 * std::exp(-true_k * t);
         // Add a tiny bit of noise? (Optional)
         // measurement += ( (double)rand() / RAND_MAX - 0.5 ) * 0.1;
-        data.measurements[i] = { measurement };
+        data.measurements[x_obs][i] = measurement; // Store in the vector for x_obs
         std::cout << t << "\t" << measurement << '\n';
     }
     std::cout << '\n';
@@ -49,19 +62,19 @@ main() {
 
     // Initial Conditions (considered fixed here)
     std::map<Variable, double> const fixed_initial_conditions = { { x, true_x0 } };
+
     // Parameters whose ICs we want to estimate (none in this case)
     std::vector<Variable> const initial_conditions_to_estimate = {};
 
     // Create the problem instance
     try {
-        ParameterEstimationProblem problem(equations,
-                                           state_vars,
-                                           params_to_estimate,
-                                           fixed_params,
-                                           fixed_initial_conditions,       // Pass the map of fixed ICs
-                                           initial_conditions_to_estimate, // Pass the vector of vars for estimated ICs
-                                           data,
-                                           0.005 // Use a slightly larger dt for faster example run
+        poly_ode::ParameterEstimationProblem problem(system,
+                                                     params_to_estimate,
+                                                     fixed_params,
+                                                     initial_conditions_to_estimate,
+                                                     fixed_initial_conditions,
+                                                     data,
+                                                     0.005 // Use a slightly larger dt for faster example run
         );
 
         // --- 4. Solve ---

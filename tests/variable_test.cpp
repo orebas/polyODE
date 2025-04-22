@@ -64,17 +64,13 @@ TEST(VariableTest, LessThanOperator) {
     EXPECT_FALSE(x_dot < x);
 
     // Tertiary sort by is_constant (false < true)
-    EXPECT_TRUE(x < x_const);
-    EXPECT_FALSE(x_const < x);
+    EXPECT_TRUE(x < x_const);  // Base < constant (same name/level)
+    EXPECT_FALSE(x_const < x); // Constant not < base
 
     // Combination
-    EXPECT_TRUE(x_dot < x_const); // name=x, deriv=1, const=false VS name=x, deriv=0, const=true -> deriv wins
-                                  // Wait, check logic: name -> deriv -> const
-                                  // x < x_const (name match, deriv match, false < true)
-                                  // x < x_dot (name match, 0 < 1)
-                                  // x_dot < x_const (name match, 1 > 0) -> False! Let's test this.
-    EXPECT_FALSE(x_dot < x_const) << "x_dot (d=1,c=F) should NOT be less than x_const (d=0,c=T)";
-    EXPECT_TRUE(x_const < x_dot) << "x_const (d=0,c=T) should be less than x_dot (d=1,c=F)";
+    // x_dot (d=1) vs x_const (d=0): Deriv level comparison wins
+    EXPECT_FALSE(x_dot < x_const);
+    EXPECT_TRUE(x_const < x_dot);
 
     // Test in a set for ordering
     std::set<Variable> var_set;

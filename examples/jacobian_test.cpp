@@ -181,7 +181,7 @@ struct ODESolutionCost {
         std::vector<T> final_state = solve_ode_templated(T_target_, params);
 
         std::vector<double> params_scalar(NUM_PARAMS);
-        for (int i = 0; i < NUM_PARAMS; ++i) params_scalar[i] = get_scalar_value(params[i]);
+        for (int i = 0; i < NUM_PARAMS; ++i) { params_scalar[i] = get_scalar_value(params[i]); }
         std::vector<double> target_state_scalar = analytical_solution(T_target_, params_scalar);
 
         residuals[STATE_X] = final_state[STATE_X] - T(target_state_scalar[STATE_X]);

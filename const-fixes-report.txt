@@ -3,696 +3,264 @@ Clang-Tidy Const-Correctness Fixes Report
 
 File: src/polynomial.cpp
 -------------------
-232 warnings generated.
-/home/orebas/cpp/polyODE/include/polynomial.hpp:210:5: warning: variable 'has_vars' of type 'bool' can be declared 'const' [misc-const-correctness]
-  210 |     bool has_vars = !m.vars.empty();
-      |     ^
-      |          const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:210:10: note: FIX-IT applied suggested code changes
-  210 |     bool has_vars = !m.vars.empty();
-      |          ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:515:9: warning: variable 'p' of type 'int' can be declared 'const' [misc-const-correctness]
-  515 |         int p = pair.second;
-      |         ^
-      |             const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:515:13: note: FIX-IT applied suggested code changes
-  515 |         int p = pair.second;
-      |             ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:533:107: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  533 |             std::cerr << "Error: Coefficient type cannot be multiplied by power integer. " << e.what() << std::endl;
-      |                                                                                                           ^~~~~~~~~
-      |                                                                                                           '\n'
-/home/orebas/cpp/polyODE/include/polynomial.hpp:533:107: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:9:51: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-    9 |     std::cout << "--- Double Coefficients ---" << std::endl;
-      |                                                   ^~~~~~~~~
-      |                                                   '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:9:51: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:25:38: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   25 |         std::cout << "Monomials:" << std::endl;
-      |                                      ^~~~~~~~~
-      |                                      '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:25:38: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:26:38: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   26 |         std::cout << "m1: " << m1 << std::endl;               // 3*x^2
-      |                                      ^~~~~~~~~
-      |                                      '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:26:38: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:27:38: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   27 |         std::cout << "m2: " << m2 << std::endl;               // 2*y*dx/dt
-      |                                      ^~~~~~~~~
-      |                                      '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:27:38: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:28:38: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   28 |         std::cout << "m3: " << m3 << std::endl;               // -1*d^2y/dt^2
-      |                                      ^~~~~~~~~
-      |                                      '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:28:38: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:29:38: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   29 |         std::cout << "m4: " << m4 << std::endl;               // 5
-      |                                      ^~~~~~~~~
-      |                                      '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:29:38: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:30:38: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   30 |         std::cout << "m5: " << m5 << std::endl;               // 1*x^2
-      |                                      ^~~~~~~~~
-      |                                      '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:30:38: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:31:52: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   31 |         std::cout << "m_neg_one: " << m_neg_one << std::endl; // -1*x
-      |                                                    ^~~~~~~~~
-      |                                                    '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:31:52: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:32:44: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   32 |         std::cout << "m_one: " << m_one << std::endl;         // 1*y
-      |                                            ^~~~~~~~~
-      |                                            '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:32:44: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:37:42: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   37 |         std::cout << "\nPolynomials:" << std::endl;
-      |                                          ^~~~~~~~~
-      |                                          '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:37:42: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:38:38: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   38 |         std::cout << "p1: " << p1 << std::endl;
-      |                                      ^~~~~~~~~
-      |                                      '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:38:38: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:39:47: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   39 |         std::cout << "p2 (sorted): " << p2 << std::endl; // Simplify sorts
-      |                                               ^~~~~~~~~
-      |                                               '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:39:47: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:41:41: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   41 |         std::cout << "\nOperations:" << std::endl;
-      |                                         ^~~~~~~~~
-      |                                         '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:41:41: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:43:47: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   43 |         std::cout << "p1 + p2 = " << p_add << std::endl; // 4*x^2 + ...
-      |                                               ^~~~~~~~~
-      |                                               '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:43:47: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:46:47: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   46 |         std::cout << "p1 - p2 = " << p_sub << std::endl; // 2*x^2 + ...
-      |                                               ^~~~~~~~~
-      |                                               '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:46:47: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:49:55: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   49 |         std::cout << "2.0 * p1 = " << p_scalar_mul << std::endl;
-      |                                                       ^~~~~~~~~
-      |                                                       '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:49:55: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:53:55: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   53 |         std::cout << "p1 * (2*x) = " << p_mono_mul << std::endl;
-      |                                                       ^~~~~~~~~
-      |                                                       '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:53:55: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:56:47: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   56 |         std::cout << "p1 * p2 = " << p_mul << std::endl;
-      |                                               ^~~~~~~~~
-      |                                               '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:56:47: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:61:51: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   61 |         std::cout << "p1 + 0 = " << p_zero_add << std::endl;
-      |                                                   ^~~~~~~~~
-      |                                                   '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:61:51: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:62:51: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   62 |         std::cout << "p1 * 0 = " << p_zero_mul << std::endl;
-      |                                                   ^~~~~~~~~
-      |                                                   '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:62:51: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:66:54: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   66 |     std::cout << "\n--- Complex Coefficients ---" << std::endl;
-      |                                                      ^~~~~~~~~
-      |                                                      '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:66:54: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:81:48: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   81 |         std::cout << "\nComplex Monomials:" << std::endl;
-      |                                                ^~~~~~~~~
-      |                                                '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:81:48: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:82:40: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   82 |         std::cout << "mc1: " << mc1 << std::endl;
-      |                                        ^~~~~~~~~
-      |                                        '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:82:40: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:83:40: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   83 |         std::cout << "mc2: " << mc2 << std::endl;
-      |                                        ^~~~~~~~~
-      |                                        '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:83:40: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:84:40: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   84 |         std::cout << "mc3: " << mc3 << std::endl;
-      |                                        ^~~~~~~~~
-      |                                        '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:84:40: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:89:50: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   89 |         std::cout << "\nComplex Polynomials:" << std::endl;
-      |                                                  ^~~~~~~~~
-      |                                                  '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:89:50: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:90:40: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   90 |         std::cout << "pc1: " << pc1 << std::endl;
-      |                                        ^~~~~~~~~
-      |                                        '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:90:40: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:91:40: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   91 |         std::cout << "pc2: " << pc2 << std::endl;
-      |                                        ^~~~~~~~~
-      |                                        '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:91:40: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:94:50: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   94 |         std::cout << "pc1 + pc2 = " << pc_add << std::endl;
-      |                                                  ^~~~~~~~~
-      |                                                  '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:94:50: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:97:50: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   97 |         std::cout << "pc1 - pc2 = " << pc_sub << std::endl;
-      |                                                  ^~~~~~~~~
-      |                                                  '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:97:50: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:101:55: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  101 |         std::cout << "i * pc1 = " << pc_scalar_mul << std::endl; // (2i-3)x^2 + y
-      |                                                       ^~~~~~~~~
-      |                                                       '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:101:55: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:104:50: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  104 |         std::cout << "pc1 * pc1 = " << pc_mul << std::endl;
-      |                                                  ^~~~~~~~~
-      |                                                  '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:104:50: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:110:49: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  110 |     std::cout << "\n--- Differentiation ---" << std::endl;
-      |                                                 ^~~~~~~~~
-      |                                                 '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:110:49: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:118:56: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  118 |         std::cout << "Monomial m = " << m_diff_test << std::endl;
-      |                                                        ^~~~~~~~~
-      |                                                        '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:118:56: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:120:47: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  120 |         std::cout << "d(m)/dt = " << dm_dt << std::endl;
-      |                                               ^~~~~~~~~
-      |                                               '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:120:47: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:128:60: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  128 |         std::cout << "\nPolynomial p = " << p_diff_test << std::endl;
-      |                                                            ^~~~~~~~~
-      |                                                            '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:128:60: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:130:47: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  130 |         std::cout << "d(p)/dt = " << dp_dt << std::endl;
-      |                                               ^~~~~~~~~
-      |                                               '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:130:47: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/polynomial.cpp:134:53: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  134 |         std::cout << "d^2(p)/dt^2 = " << d2p_dt2 << std::endl;
-      |                                                     ^~~~~~~~~
-      |                                                     '\n'
-/home/orebas/cpp/polyODE/src/polynomial.cpp:134:53: note: FIX-IT applied suggested code changes
-clang-tidy applied 41 of 41 suggested fixes.
-Suppressed 191 warnings (191 in non-user code).
+1988 warnings generated.
+/home/orebas/cpp/polyODE/include/polynomial.hpp:263:31: warning: statement should be inside braces [readability-braces-around-statements]
+  263 |         if (monomials.empty()) return;
+      |                               ^       
+      |                                {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:263:31: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:263:39: note: FIX-IT applied suggested code changes
+  263 |         if (monomials.empty()) return;
+      |                                       ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:352:31: warning: statement should be inside braces [readability-braces-around-statements]
+  352 |         if (scalar == Coeff{}) return Polynomial<Coeff>(); // Multiply by 0
+      |                               ^                                            
+      |                                {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:352:31: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:352:76: note: FIX-IT applied suggested code changes
+  352 |         if (scalar == Coeff{}) return Polynomial<Coeff>(); // Multiply by 0
+      |                                                                            ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:467:32: warning: statement should be inside braces [readability-braces-around-statements]
+  467 |         if (m.coeff == Coeff{}) continue; // Requires operator== for Coeff
+      |                                ^                                          
+      |                                 {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:467:32: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:467:75: note: FIX-IT applied suggested code changes
+  467 |         if (m.coeff == Coeff{}) continue; // Requires operator== for Coeff
+      |                                                                           ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:616:29: warning: statement should be inside braces [readability-braces-around-statements]
+  616 |     if (p.monomials.empty()) return p;
+      |                             ^         
+      |                              {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:616:29: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:616:39: note: FIX-IT applied suggested code changes
+  616 |     if (p.monomials.empty()) return p;
+      |                                       ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1052:22: warning: statement should be inside braces [readability-braces-around-statements]
+ 1052 |     if (c == Coeff{}) throw std::runtime_error("Division by zero Coeff.");
+      |                      ^                                                    
+      |                       {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1052:22: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1052:75: note: FIX-IT applied suggested code changes
+ 1052 |     if (c == Coeff{}) throw std::runtime_error("Division by zero Coeff.");
+      |                                                                           ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1061:34: warning: statement should be inside braces [readability-braces-around-statements]
+ 1061 |     if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Monomial/Polynomial.");
+      |                                  ^                                                                                
+      |                                   {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1061:34: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1061:115: note: FIX-IT applied suggested code changes
+ 1061 |     if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Monomial/Polynomial.");
+      |                                                                                                                   ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1070:34: warning: statement should be inside braces [readability-braces-around-statements]
+ 1070 |     if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Var/Polynomial.");
+      |                                  ^                                                                           
+      |                                   {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1070:34: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1070:110: note: FIX-IT applied suggested code changes
+ 1070 |     if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Var/Polynomial.");
+      |                                                                                                              ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1083:28: warning: statement should be inside braces [readability-braces-around-statements]
+ 1083 |     if (m.coeff == Coeff{}) throw std::runtime_error("Division by zero Monomial in Var/Monomial.");
+      |                            ^                                                                       
+      |                             {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1083:28: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1083:100: note: FIX-IT applied suggested code changes
+ 1083 |     if (m.coeff == Coeff{}) throw std::runtime_error("Division by zero Monomial in Var/Monomial.");
+      |                                                                                                    ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1098:34: warning: statement should be inside braces [readability-braces-around-statements]
+ 1098 |     if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Coeff/Polynomial.");
+      |                                  ^                                                                             
+      |                                   {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1098:34: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1098:112: note: FIX-IT applied suggested code changes
+ 1098 |     if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Coeff/Polynomial.");
+      |                                                                                                                ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1105:22: warning: statement should be inside braces [readability-braces-around-statements]
+ 1105 |     if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Poly/Coeff");
+      |                      ^                                                         
+      |                       {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1105:22: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1105:80: note: FIX-IT applied suggested code changes
+ 1105 |     if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Poly/Coeff");
+      |                                                                                ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1112:28: warning: statement should be inside braces [readability-braces-around-statements]
+ 1112 |     if (m.coeff == Coeff{}) throw std::runtime_error("Division by zero Monomial in Coeff/Monomial.");
+      |                            ^                                                                         
+      |                             {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1112:28: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1112:102: note: FIX-IT applied suggested code changes
+ 1112 |     if (m.coeff == Coeff{}) throw std::runtime_error("Division by zero Monomial in Coeff/Monomial.");
+      |                                                                                                      ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1119:22: warning: statement should be inside braces [readability-braces-around-statements]
+ 1119 |     if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Mono/Coeff");
+      |                      ^                                                         
+      |                       {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1119:22: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1119:80: note: FIX-IT applied suggested code changes
+ 1119 |     if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Mono/Coeff");
+      |                                                                                ^
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1132:22: warning: statement should be inside braces [readability-braces-around-statements]
+ 1132 |     if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Var/Coeff");
+      |                      ^                                                        
+      |                       {
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1132:22: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/polynomial.hpp:1132:79: note: FIX-IT applied suggested code changes
+ 1132 |     if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Var/Coeff");
+      |                                                                               ^
+clang-tidy applied 26 of 26 suggested fixes.
+Suppressed 1975 warnings (1975 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: src/parameter_estimation.cpp
 -------------------
-298 warnings generated.
-/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:76:78: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   76 |         std::cerr << "ODE integration step failed. Returning zero state." << std::endl;
-      |                                                                              ^~~~~~~~~
-      |                                                                              '\n'
-/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:76:78: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:255:30: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  255 |                           << std::endl;
-      |                              ^~~~~~~~~
-      |                              '\n'
-/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:255:30: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/include/polynomial.hpp:150:13: warning: variable 'exponent' of type 'int' can be declared 'const' [misc-const-correctness]
-  150 |             int exponent = var_pair.second;
-      |             ^
-      |                 const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:150:17: note: FIX-IT applied suggested code changes
-  150 |             int exponent = var_pair.second;
-      |                 ^
-/home/orebas/cpp/polyODE/include/polynomial_ode_system.hpp:49:97: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   49 |                 std::cerr << "Warning: State variable '" << sv << "' is marked as constant." << std::endl;
-      |                                                                                                 ^~~~~~~~~
-      |                                                                                                 '\n'
-/home/orebas/cpp/polyODE/include/polynomial_ode_system.hpp:49:97: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/parameter_estimation.cpp:102:54: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  102 |                   << num_total_estimated_ << ")." << std::endl;
-      |                                                      ^~~~~~~~~
-      |                                                      '\n'
-/home/orebas/cpp/polyODE/src/parameter_estimation.cpp:102:54: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/src/parameter_estimation.cpp:133:42: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  133 |     std::cout << summary.FullReport() << std::endl;
-      |                                          ^~~~~~~~~
-      |                                          '\n'
-/home/orebas/cpp/polyODE/src/parameter_estimation.cpp:133:42: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/tests/test_utils.hpp:62:78: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   62 |         std::cerr << "ODE integration step failed. Returning zero state." << std::endl;
-      |                                                                              ^~~~~~~~~
-      |                                                                              '\n'
-/home/orebas/cpp/polyODE/tests/test_utils.hpp:62:78: note: FIX-IT applied suggested code changes
-clang-tidy applied 7 of 7 suggested fixes.
-Suppressed 291 warnings (291 in non-user code).
+3839 warnings generated.
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:45:26: warning: statement should be inside braces [readability-braces-around-statements]
+   45 |         if (x.size() > 0) dxdt[0] = -ode_params_[0] * x[0];
+      |                          ^                                 
+      |                           {
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:45:26: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:45:60: note: FIX-IT applied suggested code changes
+   45 |         if (x.size() > 0) dxdt[0] = -ode_params_[0] * x[0];
+      |                                                            ^
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:46:26: warning: statement should be inside braces [readability-braces-around-statements]
+   46 |         if (x.size() > 1) dxdt[1] = ode_params_[1] * x[0] - ode_params_[2] * x[1];
+      |                          ^                                                        
+      |                           {
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:46:26: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:46:83: note: FIX-IT applied suggested code changes
+   46 |         if (x.size() > 1) dxdt[1] = ode_params_[1] * x[0] - ode_params_[2] * x[1];
+      |                                                                                   ^
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:66:21: warning: statement should be inside braces [readability-braces-around-statements]
+   66 |     if (n_steps < 0) n_steps = 0;
+      |                     ^            
+      |                      {
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:66:21: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/include/parameter_estimation.hpp:66:34: note: FIX-IT applied suggested code changes
+   66 |     if (n_steps < 0) n_steps = 0;
+      |                                  ^
+/home/orebas/cpp/polyODE/tests/test_utils.hpp:52:21: warning: statement should be inside braces [readability-braces-around-statements]
+   52 |     if (n_steps < 0) n_steps = 0;
+      |                     ^            
+      |                      {
+/home/orebas/cpp/polyODE/tests/test_utils.hpp:52:21: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/tests/test_utils.hpp:52:34: note: FIX-IT applied suggested code changes
+   52 |     if (n_steps < 0) n_steps = 0;
+      |                                  ^
+clang-tidy applied 8 of 8 suggested fixes.
+Suppressed 3835 warnings (3835 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: examples/blinded_estimation.cpp
 -------------------
-299 warnings generated.
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:12:68: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   12 |     std::cout << "--- Blinded Parameter Estimation Example ---" << std::endl;
-      |                                                                    ^~~~~~~~~
-      |                                                                    '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:12:68: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:13:51: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   13 |     std::cout << "System: x' = -a*x; y' = b*y" << std::endl;
-      |                                                   ^~~~~~~~~
-      |                                                   '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:13:51: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:52:69: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   52 |     std::cout << "\nGenerating synthetic data with true values:" << std::endl;
-      |                                                                     ^~~~~~~~~
-      |                                                                     '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:52:69: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:53:108: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   53 |     std::cout << "a = " << true_a << ", b = " << true_b << ", x0 = " << true_x0 << ", y0 = " << true_y0 << std::endl;
-      |                                                                                                            ^~~~~~~~~
-      |                                                                                                            '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:53:108: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:54:18: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   54 |     std::cout << std::endl;
-      |                  ^~~~~~~~~
-      |                  '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:54:18: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:57:18: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   57 |               << std::endl;
-      |                  ^~~~~~~~~
-      |                  '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:57:18: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:58:42: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   58 |     std::cout << std::string(40, '-') << std::endl;
-      |                                          ^~~~~~~~~
-      |                                          '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:58:42: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:72:100: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   72 |         std::cout << std::setw(10) << t << std::setw(15) << x_noisy << std::setw(15) << y_noisy << std::endl;
-      |                                                                                                    ^~~~~~~~~
-      |                                                                                                    '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:72:100: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:74:18: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   74 |     std::cout << std::endl;
-      |                  ^~~~~~~~~
-      |                  '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:74:18: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:103:92: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  103 |         std::cout << "Starting estimation with deliberately incorrect initial guesses:" << std::endl;
-      |                                                                                            ^~~~~~~~~
-      |                                                                                            '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:103:92: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:104:83: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  104 |         std::cout << "a = " << initial_guess[0] << " (true: " << true_a << ")" << std::endl;
-      |                                                                                   ^~~~~~~~~
-      |                                                                                   '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:104:83: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:105:83: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  105 |         std::cout << "b = " << initial_guess[1] << " (true: " << true_b << ")" << std::endl;
-      |                                                                                   ^~~~~~~~~
-      |                                                                                   '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:105:83: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:106:85: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  106 |         std::cout << "x0 = " << initial_guess[2] << " (true: " << true_x0 << ")" << std::endl;
-      |                                                                                     ^~~~~~~~~
-      |                                                                                     '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:106:85: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:107:85: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  107 |         std::cout << "y0 = " << initial_guess[3] << " (true: " << true_y0 << ")" << std::endl;
-      |                                                                                     ^~~~~~~~~
-      |                                                                                     '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:107:85: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:108:22: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  108 |         std::cout << std::endl;
-      |                      ^~~~~~~~~
-      |                      '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:108:22: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:113:79: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  113 |             std::cout << "\nEstimation results (compared to true values):" << std::endl;
-      |                                                                               ^~~~~~~~~
-      |                                                                               '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:113:79: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:114:97: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  114 |             std::cout << "Parameter a = " << initial_guess[0] << " (true: " << true_a << ")" << std::endl;
-      |                                                                                                 ^~~~~~~~~
-      |                                                                                                 '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:114:97: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:115:97: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  115 |             std::cout << "Parameter b = " << initial_guess[1] << " (true: " << true_b << ")" << std::endl;
-      |                                                                                                 ^~~~~~~~~
-      |                                                                                                 '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:115:97: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:116:97: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  116 |             std::cout << "Initial x0 = " << initial_guess[2] << " (true: " << true_x0 << ")" << std::endl;
-      |                                                                                                 ^~~~~~~~~
-      |                                                                                                 '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:116:97: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:117:97: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  117 |             std::cout << "Initial y0 = " << initial_guess[3] << " (true: " << true_y0 << ")" << std::endl;
-      |                                                                                                 ^~~~~~~~~
-      |                                                                                                 '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:117:97: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:125:50: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  125 |             std::cout << "\nRelative errors:" << std::endl;
-      |                                                  ^~~~~~~~~
-      |                                                  '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:125:50: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:126:58: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  126 |             std::cout << "a:  " << rel_error_a << "%" << std::endl;
-      |                                                          ^~~~~~~~~
-      |                                                          '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:126:58: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:127:58: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  127 |             std::cout << "b:  " << rel_error_b << "%" << std::endl;
-      |                                                          ^~~~~~~~~
-      |                                                          '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:127:58: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:128:59: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  128 |             std::cout << "x0: " << rel_error_x0 << "%" << std::endl;
-      |                                                           ^~~~~~~~~
-      |                                                           '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:128:59: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:129:59: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  129 |             std::cout << "y0: " << rel_error_y0 << "%" << std::endl;
-      |                                                           ^~~~~~~~~
-      |                                                           '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:129:59: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:131:75: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  131 |             std::cout << "\nEstimation failed or solution not usable." << std::endl;
-      |                                                                           ^~~~~~~~~
-      |                                                                           '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:131:75: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:135:86: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  135 |         std::cerr << "Error creating or solving estimation problem: " << e.what() << std::endl;
-      |                                                                                      ^~~~~~~~~
-      |                                                                                      '\n'
-/home/orebas/cpp/polyODE/examples/blinded_estimation.cpp:135:86: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/include/polynomial.hpp:248:9: warning: variable 'm' of type 'Monomial<double>' can be declared 'const' [misc-const-correctness]
-  248 |         Monomial<Coeff> m(Coeff(1), var, 1);
-      |         ^
-      |                         const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:248:25: note: FIX-IT applied suggested code changes
-  248 |         Monomial<Coeff> m(Coeff(1), var, 1);
-      |                         ^
-clang-tidy applied 28 of 28 suggested fixes.
-Suppressed 271 warnings (271 in non-user code).
+3935 warnings generated.
+Suppressed 3935 warnings (3935 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: examples/basic_estimation.cpp
 -------------------
-281 warnings generated.
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:10:66: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   10 |     std::cout << "--- Basic Parameter Estimation Example ---" << std::endl;
-      |                                                                  ^~~~~~~~~
-      |                                                                  '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:10:66: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:30:79: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   30 |     std::cout << "Generating data with k=" << true_k << ", x0=" << true_x0 << std::endl;
-      |                                                                               ^~~~~~~~~
-      |                                                                               '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:30:79: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:31:41: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   31 |     std::cout << "Time\tMeasurement" << std::endl;
-      |                                         ^~~~~~~~~
-      |                                         '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:31:41: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:38:50: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   38 |         std::cout << t << "\t" << measurement << std::endl;
-      |                                                  ^~~~~~~~~
-      |                                                  '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:38:50: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:40:18: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   40 |     std::cout << std::endl;
-      |                  ^~~~~~~~~
-      |                  '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:40:18: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:70:89: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   70 |         std::cout << "Starting estimation with initial guess k=" << initial_guess[0] << std::endl;
-      |                                                                                         ^~~~~~~~~
-      |                                                                                         '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:70:89: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:75:56: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   75 |             std::cout << "\nEstimation successful!" << std::endl;
-      |                                                        ^~~~~~~~~
-      |                                                        '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:75:56: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:76:66: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   76 |             std::cout << "Estimated k = " << initial_guess[0] << std::endl;
-      |                                                                  ^~~~~~~~~
-      |                                                                  '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:76:66: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:79:75: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   79 |             std::cout << "\nEstimation failed or solution not usable." << std::endl;
-      |                                                                           ^~~~~~~~~
-      |                                                                           '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:79:75: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:83:86: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   83 |         std::cerr << "Error creating or solving estimation problem: " << e.what() << std::endl;
-      |                                                                                      ^~~~~~~~~
-      |                                                                                      '\n'
-/home/orebas/cpp/polyODE/examples/basic_estimation.cpp:83:86: note: FIX-IT applied suggested code changes
-clang-tidy applied 10 of 10 suggested fixes.
-Suppressed 271 warnings (271 in non-user code).
+3815 warnings generated.
+Suppressed 3815 warnings (3815 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: examples/holling_test.cpp
 -------------------
-261 warnings generated.
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:60:51: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   60 |                   << std::setw(15) << state[1] << std::endl;
-      |                                                   ^~~~~~~~~
-      |                                                   '\n'
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:60:51: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:98:58: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   98 |     std::cout << "Holling Type II Simulation Results" << std::endl;
-      |                                                          ^~~~~~~~~
-      |                                                          '\n'
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:98:58: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:99:111: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   99 |     std::cout << std::setw(12) << "Time" << std::setw(15) << "Prey (x)" << std::setw(15) << "Predator (y)" << std::endl;
-      |                                                                                                               ^~~~~~~~~
-      |                                                                                                               '\n'
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:99:111: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:100:42: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  100 |     std::cout << std::string(42, '-') << std::endl;
-      |                                          ^~~~~~~~~
-      |                                          '\n'
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:100:42: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:111:68: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  111 |         std::cerr << "\nError during integration: " << e.what() << std::endl;
-      |                                                                    ^~~~~~~~~
-      |                                                                    '\n'
-/home/orebas/cpp/polyODE/examples/holling_test.cpp:111:68: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/include/polynomial.hpp:834:9: warning: variable 'new_num' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  834 |         Polynomial<Coeff> new_num = numerator * other.denominator - other.numerator * denominator;
-      |         ^
-      |                           const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:834:27: note: FIX-IT applied suggested code changes
-  834 |         Polynomial<Coeff> new_num = numerator * other.denominator - other.numerator * denominator;
-      |                           ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:835:9: warning: variable 'new_den' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  835 |         Polynomial<Coeff> new_den = denominator * other.denominator;
-      |         ^
-      |                           const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:835:27: note: FIX-IT applied suggested code changes
-  835 |         Polynomial<Coeff> new_den = denominator * other.denominator;
-      |                           ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:839:9: warning: variable 'new_num' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  839 |         Polynomial<Coeff> new_num = numerator * other.numerator;
-      |         ^
-      |                           const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:839:27: note: FIX-IT applied suggested code changes
-  839 |         Polynomial<Coeff> new_num = numerator * other.numerator;
-      |                           ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:840:9: warning: variable 'new_den' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  840 |         Polynomial<Coeff> new_den = denominator * other.denominator;
-      |         ^
-      |                           const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:840:27: note: FIX-IT applied suggested code changes
-  840 |         Polynomial<Coeff> new_den = denominator * other.denominator;
-      |                           ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:844:9: warning: variable 'temp_other' of type 'RationalFunction<double>' can be declared 'const' [misc-const-correctness]
-  844 |         RationalFunction<Coeff> temp_other = other;
-      |         ^
-      |                                 const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:844:33: note: FIX-IT applied suggested code changes
-  844 |         RationalFunction<Coeff> temp_other = other;
-      |                                 ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:848:9: warning: variable 'new_num' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  848 |         Polynomial<Coeff> new_num = numerator * temp_other.denominator;
-      |         ^
-      |                           const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:848:27: note: FIX-IT applied suggested code changes
-  848 |         Polynomial<Coeff> new_num = numerator * temp_other.denominator;
-      |                           ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:849:9: warning: variable 'new_den' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  849 |         Polynomial<Coeff> new_den = denominator * temp_other.numerator;
-      |         ^
-      |                           const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:849:27: note: FIX-IT applied suggested code changes
-  849 |         Polynomial<Coeff> new_den = denominator * temp_other.numerator;
-      |                           ^
-clang-tidy applied 12 of 12 suggested fixes.
-Suppressed 249 warnings (248 in non-user code, 1 with check filters).
+3296 warnings generated.
+Suppressed 3296 warnings (3295 in non-user code, 1 with check filters).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: examples/lotka_volterra.cpp
 -------------------
-249 warnings generated.
-/home/orebas/cpp/polyODE/examples/lotka_volterra.cpp:34:67: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   34 |         std::cout << t << ", " << state[0] << ", " << state[1] << std::endl;
-      |                                                                   ^~~~~~~~~
-      |                                                                   '\n'
-/home/orebas/cpp/polyODE/examples/lotka_volterra.cpp:34:67: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/lotka_volterra.cpp:66:31: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   66 |     std::cout << "t, x, y" << std::endl;
-      |                               ^~~~~~~~~
-      |                               '\n'
-/home/orebas/cpp/polyODE/examples/lotka_volterra.cpp:66:31: note: FIX-IT applied suggested code changes
-clang-tidy applied 2 of 2 suggested fixes.
-Suppressed 247 warnings (247 in non-user code).
+3294 warnings generated.
+Suppressed 3294 warnings (3294 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: examples/jacobian_test.cpp
 -------------------
-269 warnings generated.
-/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:115:101: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  115 |         std::cerr << "ODE integration step failed (potential Jet issue?). Returning zero state." << std::endl;
-      |                                                                                                     ^~~~~~~~~
-      |                                                                                                     '\n'
-/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:115:101: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:168:18: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  168 |     std::cout << std::endl;
-      |                  ^~~~~~~~~
-      |                  '\n'
-/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:168:18: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:205:70: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  205 |     std::cout << "  y0= " << nominal_params_vec[PARAM_Y0] << "\n" << std::endl;
-      |                                                                      ^~~~~~~~~
-      |                                                                      '\n'
-/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:205:70: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:242:61: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  242 |         std::cerr << "Ceres Jacobian evaluation failed!" << std::endl;
-      |                                                             ^~~~~~~~~
-      |                                                             '\n'
-/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:242:61: note: FIX-IT applied suggested code changes
-clang-tidy applied 4 of 4 suggested fixes.
-Suppressed 265 warnings (265 in non-user code).
+3666 warnings generated.
+/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:184:45: warning: statement should be inside braces [readability-braces-around-statements]
+  184 |         for (int i = 0; i < NUM_PARAMS; ++i) params_scalar[i] = get_scalar_value(params[i]);
+      |                                             ^                                               
+      |                                              {
+/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:184:45: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/examples/jacobian_test.cpp:184:93: note: FIX-IT applied suggested code changes
+  184 |         for (int i = 0; i < NUM_PARAMS; ++i) params_scalar[i] = get_scalar_value(params[i]);
+      |                                                                                             ^
+clang-tidy applied 2 of 2 suggested fixes.
+Suppressed 3665 warnings (3665 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: examples/estimate_ic_param.cpp
 -------------------
-280 warnings generated.
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:10:65: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   10 |     std::cout << "--- Estimate IC and Parameter Example ---" << std::endl;
-      |                                                                 ^~~~~~~~~
-      |                                                                 '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:10:65: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:31:79: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   31 |     std::cout << "Generating data with k=" << true_k << ", x0=" << true_x0 << std::endl;
-      |                                                                               ^~~~~~~~~
-      |                                                                               '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:31:79: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:32:41: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   32 |     std::cout << "Time\tMeasurement" << std::endl;
-      |                                         ^~~~~~~~~
-      |                                         '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:32:41: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:37:50: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   37 |         std::cout << t << "\t" << measurement << std::endl;
-      |                                                  ^~~~~~~~~
-      |                                                  '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:37:50: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:39:18: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   39 |     std::cout << std::endl;
-      |                  ^~~~~~~~~
-      |                  '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:39:18: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:70:22: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   70 |                   << std::endl;
-      |                      ^~~~~~~~~
-      |                      '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:70:22: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:75:56: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   75 |             std::cout << "\nEstimation successful!" << std::endl;
-      |                                                        ^~~~~~~~~
-      |                                                        '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:75:56: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:76:99: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   76 |             std::cout << "Estimated k  = " << initial_guess[0] << " (True = " << true_k << ")" << std::endl;
-      |                                                                                                   ^~~~~~~~~
-      |                                                                                                   '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:76:99: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:77:100: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   77 |             std::cout << "Estimated x0 = " << initial_guess[1] << " (True = " << true_x0 << ")" << std::endl;
-      |                                                                                                    ^~~~~~~~~
-      |                                                                                                    '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:77:100: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:79:75: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   79 |             std::cout << "\nEstimation failed or solution not usable." << std::endl;
-      |                                                                           ^~~~~~~~~
-      |                                                                           '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:79:75: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:83:86: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   83 |         std::cerr << "Error creating or solving estimation problem: " << e.what() << std::endl;
-      |                                                                                      ^~~~~~~~~
-      |                                                                                      '\n'
-/home/orebas/cpp/polyODE/examples/estimate_ic_param.cpp:83:86: note: FIX-IT applied suggested code changes
-clang-tidy applied 11 of 11 suggested fixes.
-Suppressed 269 warnings (269 in non-user code).
+3813 warnings generated.
+Suppressed 3813 warnings (3813 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: tests/analytic_test.cpp
 -------------------
-258 warnings generated.
-Suppressed 258 warnings (257 in non-user code, 1 with check filters).
+3451 warnings generated.
+/home/orebas/cpp/polyODE/tests/analytic_test.cpp:88:53: warning: statement should be inside braces [readability-braces-around-statements]
+   88 |         if (current_t >= t_end - dt_integrate / 2.0) break;
+      |                                                     ^      
+      |                                                      {
+/home/orebas/cpp/polyODE/tests/analytic_test.cpp:88:53: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/tests/analytic_test.cpp:88:60: note: FIX-IT applied suggested code changes
+   88 |         if (current_t >= t_end - dt_integrate / 2.0) break;
+      |                                                            ^
+/home/orebas/cpp/polyODE/tests/analytic_test.cpp:92:35: warning: statement should be inside braces [readability-braces-around-statements]
+   92 |         if (next_report_t > t_end) next_report_t = t_end;
+      |                                   ^                      
+      |                                    {
+/home/orebas/cpp/polyODE/tests/analytic_test.cpp:92:35: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/tests/analytic_test.cpp:92:58: note: FIX-IT applied suggested code changes
+   92 |         if (next_report_t > t_end) next_report_t = t_end;
+      |                                                          ^
+clang-tidy applied 4 of 4 suggested fixes.
+Suppressed 3449 warnings (3448 in non-user code, 1 with check filters).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: tests/exponential_decay_test.cpp
 -------------------
-260 warnings generated.
-Suppressed 260 warnings (260 in non-user code).
+3452 warnings generated.
+/home/orebas/cpp/polyODE/tests/exponential_decay_test.cpp:57:53: warning: statement should be inside braces [readability-braces-around-statements]
+   57 |         if (current_t >= t_end - dt_integrate / 2.0) break;
+      |                                                     ^      
+      |                                                      {
+/home/orebas/cpp/polyODE/tests/exponential_decay_test.cpp:57:53: note: FIX-IT applied suggested code changes
+/home/orebas/cpp/polyODE/tests/exponential_decay_test.cpp:57:60: note: FIX-IT applied suggested code changes
+   57 |         if (current_t >= t_end - dt_integrate / 2.0) break;
+      |                                                            ^
+clang-tidy applied 2 of 2 suggested fixes.
+Suppressed 3451 warnings (3451 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: tests/variable_test.cpp
 -------------------
-218 warnings generated.
-Suppressed 218 warnings (218 in non-user code).
+2358 warnings generated.
+Suppressed 2358 warnings (2358 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: tests/polynomial_test.cpp
 -------------------
-251 warnings generated.
-Suppressed 251 warnings (251 in non-user code).
+3442 warnings generated.
+Suppressed 3442 warnings (3442 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: tests/ode_system_test.cpp
 -------------------
-254 warnings generated.
+3445 warnings generated.
 /home/orebas/cpp/polyODE/tests/ode_system_test.cpp:35:23: warning: variable 'system' of type 'RationalFunctionOdeSystem<double>' can be declared 'const' [misc-const-correctness]
    35 |     EXPECT_NO_THROW({ RationalFunctionOdeSystem<double> system(equations1, state_vars1, parameters1); });
       |                       ^
@@ -705,172 +273,28 @@ File: tests/ode_system_test.cpp
 /home/orebas/cpp/polyODE/tests/ode_system_test.cpp:121:20: warning: variable 'system' of type 'RationalFunctionOdeSystem<double>' can be declared 'const' [misc-const-correctness]
   121 |     EXPECT_THROW({ RationalFunctionOdeSystem<double> system(eqs, sv, params); }, std::invalid_argument);
       |                    ^
-Suppressed 250 warnings (250 in non-user code).
+Suppressed 3441 warnings (3441 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: tests/monomial_test.cpp
 -------------------
-220 warnings generated.
-Suppressed 220 warnings (220 in non-user code).
+2360 warnings generated.
+Suppressed 2360 warnings (2360 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: tests/rational_function_test.cpp
 -------------------
-263 warnings generated.
-/home/orebas/cpp/polyODE/include/polynomial.hpp:829:9: warning: variable 'new_num' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  829 |         Polynomial<Coeff> new_num = numerator * other.denominator + other.numerator * denominator;
-      |         ^
-      |                           const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:829:27: note: FIX-IT applied suggested code changes
-  829 |         Polynomial<Coeff> new_num = numerator * other.denominator + other.numerator * denominator;
-      |                           ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:830:9: warning: variable 'new_den' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  830 |         Polynomial<Coeff> new_den = denominator * other.denominator;
-      |         ^
-      |                           const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:830:27: note: FIX-IT applied suggested code changes
-  830 |         Polynomial<Coeff> new_den = denominator * other.denominator;
-      |                           ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:881:5: warning: variable 'new_num' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  881 |     Polynomial<Coeff> new_num = rf.numerator + poly * rf.denominator;
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:881:23: note: FIX-IT applied suggested code changes
-  881 |     Polynomial<Coeff> new_num = rf.numerator + poly * rf.denominator;
-      |                       ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:968:5: warning: variable 'new_num' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  968 |     Polynomial<Coeff> new_num = rf.numerator * poly;
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:968:23: note: FIX-IT applied suggested code changes
-  968 |     Polynomial<Coeff> new_num = rf.numerator * poly;
-      |                       ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1013:5: warning: variable 'new_den' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
- 1013 |     Polynomial<Coeff> new_den = rf.denominator * poly;
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1013:23: note: FIX-IT applied suggested code changes
- 1013 |     Polynomial<Coeff> new_den = rf.denominator * poly;
-      |                       ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1020:5: warning: variable 'new_num' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
- 1020 |     Polynomial<Coeff> new_num = poly * rf.denominator;
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1020:23: note: FIX-IT applied suggested code changes
- 1020 |     Polynomial<Coeff> new_num = poly * rf.denominator;
-      |                       ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1153:5: warning: variable 'den_is_one' of type 'bool' can be declared 'const' [misc-const-correctness]
- 1153 |     bool den_is_one = (rf.denominator.monomials.size() == 1 && rf.denominator.monomials[0].vars.empty() &&
-      |     ^
-      |          const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1153:10: note: FIX-IT applied suggested code changes
- 1153 |     bool den_is_one = (rf.denominator.monomials.size() == 1 && rf.denominator.monomials[0].vars.empty() &&
-      |          ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1190:5: warning: variable 'N_prime' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
- 1190 |     Polynomial<Coeff> N_prime = differentiate_wrt_t(N);
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1190:23: note: FIX-IT applied suggested code changes
- 1190 |     Polynomial<Coeff> N_prime = differentiate_wrt_t(N);
-      |                       ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1191:5: warning: variable 'D_prime' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
- 1191 |     Polynomial<Coeff> D_prime = differentiate_wrt_t(D);
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1191:23: note: FIX-IT applied suggested code changes
- 1191 |     Polynomial<Coeff> D_prime = differentiate_wrt_t(D);
-      |                       ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1193:5: warning: variable 'new_num' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
- 1193 |     Polynomial<Coeff> new_num = N_prime * D - N * D_prime;
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1193:23: note: FIX-IT applied suggested code changes
- 1193 |     Polynomial<Coeff> new_num = N_prime * D - N * D_prime;
-      |                       ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1194:5: warning: variable 'new_den' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
- 1194 |     Polynomial<Coeff> new_den = D * D;
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:1194:23: note: FIX-IT applied suggested code changes
- 1194 |     Polynomial<Coeff> new_den = D * D;
-      |                       ^
-/home/orebas/cpp/polyODE/tests/test_utils.hpp:116:5: warning: variable 'lhs' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  116 |     Polynomial<Coeff> lhs = rf1.numerator * rf2.denominator;
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/tests/test_utils.hpp:116:23: note: FIX-IT applied suggested code changes
-  116 |     Polynomial<Coeff> lhs = rf1.numerator * rf2.denominator;
-      |                       ^
-/home/orebas/cpp/polyODE/tests/test_utils.hpp:117:5: warning: variable 'rhs' of type 'Polynomial<double>' can be declared 'const' [misc-const-correctness]
-  117 |     Polynomial<Coeff> rhs = rf2.numerator * rf1.denominator;
-      |     ^
-      |                       const 
-/home/orebas/cpp/polyODE/tests/test_utils.hpp:117:23: note: FIX-IT applied suggested code changes
-  117 |     Polynomial<Coeff> rhs = rf2.numerator * rf1.denominator;
-      |                       ^
-clang-tidy applied 13 of 13 suggested fixes.
-Suppressed 250 warnings (250 in non-user code).
+3441 warnings generated.
+Suppressed 3441 warnings (3441 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 
 File: tests/holling_odesystem_test.cpp
 -------------------
-276 warnings generated.
-/home/orebas/cpp/polyODE/include/ode_system.hpp:167:9: warning: variable 'observer' of type 'InternalObserver' can be declared 'const' [misc-const-correctness]
-  167 |         InternalObserver observer(results, m_state_vars, *this);
-      |         ^
-      |                          const 
-/home/orebas/cpp/polyODE/include/ode_system.hpp:167:26: note: FIX-IT applied suggested code changes
-  167 |         InternalObserver observer(results, m_state_vars, *this);
-      |                          ^
-/home/orebas/cpp/polyODE/include/ode_system.hpp:197:72: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  197 |             std::cerr << "\nError during integration: " << e.what() << std::endl;
-      |                                                                        ^~~~~~~~~
-      |                                                                        '\n'
-/home/orebas/cpp/polyODE/include/ode_system.hpp:197:72: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/include/ode_system.hpp:238:97: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-  238 |                 std::cerr << "Error in batch simulation run " << (i + 1) << ": " << e.what() << std::endl;
-      |                                                                                                 ^~~~~~~~~
-      |                                                                                                 '\n'
-/home/orebas/cpp/polyODE/include/ode_system.hpp:238:97: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/include/polynomial.hpp:636:5: warning: variable 'm_lhs' of type 'Monomial<double>' can be declared 'const' [misc-const-correctness]
-  636 |     Monomial<Coeff> m_lhs(Coeff(1), lhs, 1);
-      |     ^
-      |                     const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:636:21: note: FIX-IT applied suggested code changes
-  636 |     Monomial<Coeff> m_lhs(Coeff(1), lhs, 1);
-      |                     ^
-/home/orebas/cpp/polyODE/include/polynomial.hpp:637:5: warning: variable 'm_rhs' of type 'Monomial<double>' can be declared 'const' [misc-const-correctness]
-  637 |     Monomial<Coeff> m_rhs(Coeff(1), rhs, 1);
-      |     ^
-      |                     const 
-/home/orebas/cpp/polyODE/include/polynomial.hpp:637:21: note: FIX-IT applied suggested code changes
-  637 |     Monomial<Coeff> m_rhs(Coeff(1), rhs, 1);
-      |                     ^
-/home/orebas/cpp/polyODE/tests/holling_odesystem_test.cpp:18:48: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   18 |         std::cout << "No results to print." << std::endl;
-      |                                                ^~~~~~~~~
-      |                                                '\n'
-/home/orebas/cpp/polyODE/tests/holling_odesystem_test.cpp:18:48: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/tests/holling_odesystem_test.cpp:30:18: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   30 |     std::cout << std::endl;
-      |                  ^~~~~~~~~
-      |                  '\n'
-/home/orebas/cpp/polyODE/tests/holling_odesystem_test.cpp:30:18: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/tests/holling_odesystem_test.cpp:37:51: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   37 |     std::cout << std::string(total_width, '-') << std::endl;
-      |                                                   ^~~~~~~~~
-      |                                                   '\n'
-/home/orebas/cpp/polyODE/tests/holling_odesystem_test.cpp:37:51: note: FIX-IT applied suggested code changes
-/home/orebas/cpp/polyODE/tests/holling_odesystem_test.cpp:52:22: warning: do not use 'std::endl' with streams; use '\n' instead [performance-avoid-endl]
-   52 |         std::cout << std::endl;
-      |                      ^~~~~~~~~
-      |                      '\n'
-/home/orebas/cpp/polyODE/tests/holling_odesystem_test.cpp:52:22: note: FIX-IT applied suggested code changes
-clang-tidy applied 9 of 9 suggested fixes.
-Suppressed 267 warnings (267 in non-user code).
+3458 warnings generated.
+Suppressed 3458 warnings (3458 in non-user code).
 Use -header-filter=.* to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
 
 

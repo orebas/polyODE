@@ -3,8 +3,7 @@
 
 #include <algorithm>   // For std::sort
 #include <ceres/jet.h> // Include ceres::Jet for pow overload check
-#include <cmath>       // For std::abs - Keep for potential non-complex use
-#include <cmath>       // Required for std::pow in evaluate
+#include <cmath>       // For std::abs - Keep for potential non-complex use. and std::pow in evaluate
 #include <complex>     // For complex coefficients
 #include <iostream>
 #include <limits>    // For numeric limits in evaluate
@@ -57,7 +56,7 @@ get_scalar_value(const T &val) {
 // Variable Struct
 //-----------------------------------------------------------------------------
 struct Variable {
-    std::string name = "";
+    std::string name;
     int deriv_level = 0;
     bool is_constant = false;
 
@@ -151,6 +150,9 @@ struct Monomial {
 
             auto it = values.find(v);
             if (it == values.end()) {
+                // --- DEBUG: Print missing variable ---
+                std::cerr << "DEBUG: Monomial::evaluate failed to find key: " << v << std::endl;
+                // --- END DEBUG ---
                 std::stringstream ss;
                 ss << "Variable '" << v << "' not found in values map during evaluation.";
                 throw std::runtime_error(ss.str());
@@ -181,7 +183,7 @@ struct Monomial {
     }
 
     // Check if two monomials have the same variable parts (ignoring coefficients)
-    bool hasSameVariables(const Monomial<Coeff> &other) const { return vars == other.vars; }
+    [[nodiscard]] bool hasSameVariables(const Monomial<Coeff> &other) const { return vars == other.vars; }
 
     // Multiplication operator
     Monomial<Coeff> operator*(const Monomial<Coeff> &other) const {
@@ -260,7 +262,7 @@ struct Polynomial {
 
     // Simplify the polynomial: combine like terms and remove zero terms
     void simplify() {
-        if (monomials.empty()) return;
+        if (monomials.empty()) { return; }
 
         // Map variable parts (map<Variable, int>) to total coefficient
         std::map<std::map<Variable, int>, Coeff> term_map;
@@ -349,7 +351,9 @@ struct Polynomial {
     }
     Polynomial<Coeff> operator*(const Coeff &scalar) const {
         Polynomial<Coeff> result = *this;
-        if (scalar == Coeff{}) return Polynomial<Coeff>(); // Multiply by 0
+        if (scalar == Coeff{}) {
+            return Polynomial<Coeff>(); // Multiply by 0
+        }
         for (auto &m : result.monomials) {
             m.coeff *= scalar; // Requires Coeff *= Coeff
         }
@@ -359,7 +363,7 @@ struct Polynomial {
 
     // Evaluate the polynomial by summing the evaluation of its monomials
     template<typename T> // Template on the value type T
-    T evaluate(const std::map<Variable, T> &values) const {
+    [[nodiscard]] T evaluate(const std::map<Variable, T> &values) const {
         T total = T(0.0); // Requires T constructible from 0.0
         for (const auto &m : monomials) {
             total += m.template evaluate<T>(values); // Requires T supports operator+=
@@ -462,18 +466,32 @@ operator<<(std::ostream &os, const Polynomial<Coeff> &p) {
         return os;
     }
 
+    // Simplify should ensure terms are sorted and non-zero.
+    // Rely on Monomial::operator<< to handle coefficient printing including sign.
+
     bool first_term = true;
     for (const auto &m : p.monomials) {
-        if (m.coeff == Coeff{}) continue; // Requires operator== for Coeff
+        // Assume simplify() has removed terms where m.coeff == Coeff{}
+        if (m.coeff == Coeff{})
+            continue; // Skip explicitly zero terms if simplify didn't catch them?
+                      // Let's trust simplify() for now and remove this check.
 
         if (!first_term) {
-            os << " + "; // Always print " + " between terms.
+            // Print " + " for subsequent terms. Monomial::operator<< will handle
+            // printing negative signs for its coefficient if necessary.
+            // This leads to formats like "5 + -2*x".
+            // A more complex version could check sign here if Coeff supports < 0.
+            os << " + ";
         }
-        os << m; // Print the monomial (its operator<< handles the coefficient)
+        os << m; // Print the monomial
         first_term = false;
     }
-    // If all terms were zero
+
+    // If simplify worked, p.monomials shouldn't be empty AND first_term still true.
+    // If p.monomials was not empty but contained only Coeff{} terms (simplify bug?),
+    // this ensures we still print 0.
     if (first_term) { os << "0"; }
+
     return os;
 }
 
@@ -613,7 +631,7 @@ operator*(const Variable &var, Monomial<Coeff> m) { // Pass m by value
 template<typename Coeff>
 inline Polynomial<Coeff>
 operator*(Polynomial<Coeff> p, const Variable &var) { // Pass p by value
-    if (p.monomials.empty()) return p;
+    if (p.monomials.empty()) { return p; }
     for (auto &m : p.monomials) {
         m = m * var; // Use Monomial * Variable
     }
@@ -803,25 +821,40 @@ struct RationalFunction {
 
     // --- Evaluation ---
     template<typename T> // Template on the value type T
-    T evaluate(const std::map<Variable, T> &values) const {
+    [[nodiscard]] T evaluate(const std::map<Variable, T> &values) const {
         T num_val = numerator.template evaluate<T>(values);
         T den_val = denominator.template evaluate<T>(values);
 
-        if (std::abs(get_scalar_value(den_val)) < std::numeric_limits<double>::epsilon()) {
-            if (std::abs(get_scalar_value(num_val)) < std::numeric_limits<double>::epsilon()) {
-                // 0/0
-                if constexpr (std::is_floating_point_v<Coeff> || has_v_member<T>::value) { // Use the trait
-                    return T(std::numeric_limits<double>::quiet_NaN());
-                } else {
-                    throw std::runtime_error("Evaluation resulted in 0/0 indeterminate form for non-floating type.");
-                }
+        double den_scalar_abs;
+        double num_scalar_abs;
+
+        // Extract absolute scalar value, checking for NaN input
+        if constexpr (std::is_same_v<T, double>) {
+            if (std::isnan(num_val) || std::isnan(den_val)) return std::numeric_limits<double>::quiet_NaN();
+            den_scalar_abs = std::fabs(den_val);
+            num_scalar_abs = std::fabs(num_val);
+        } else { // Assuming Jet
+            // Check if scalar parts are NaN first
+            if (std::isnan(num_val.a) || std::isnan(den_val.a)) {
+                return T(std::numeric_limits<double>::quiet_NaN()); // Return NaN Jet
+            }
+            den_scalar_abs = std::fabs(den_val.a); // Access scalar part
+            num_scalar_abs = std::fabs(num_val.a);
+        }
+
+        // Check for division by zero or 0/0
+        if (den_scalar_abs < std::numeric_limits<double>::epsilon()) {
+            if (num_scalar_abs < std::numeric_limits<double>::epsilon()) {
+                // 0/0 -> return NaN
+                return T(std::numeric_limits<double>::quiet_NaN());
             } else {
-                // Non-zero / Zero. Return Inf or throw?
-                // Throwing is generally safer.
-                throw std::runtime_error("Division by zero in RationalFunction::evaluate.");
+                // Non-zero / Zero -> throw (as this indicates a bigger problem than NaN)
+                // Or return INF Jet? Throwing is safer for now.
+                throw std::invalid_argument("Division by zero in RationalFunction::evaluate.");
             }
         }
-        return num_val / den_val; // Requires T supports operator/
+        // Denominator is non-zero, perform division.
+        return num_val / den_val;
     }
 
     // --- Operators ---
@@ -843,7 +876,7 @@ struct RationalFunction {
     RationalFunction<Coeff> operator/(const RationalFunction<Coeff> &other) const {
         RationalFunction<Coeff> const temp_other = other;
         if (temp_other.numerator.monomials.empty()) {
-            throw std::runtime_error("Division by zero RationalFunction (numerator is zero polynomial).");
+            throw std::invalid_argument("Division by zero RationalFunction (numerator is zero polynomial).");
         }
         Polynomial<Coeff> const new_num = numerator * temp_other.denominator;
         Polynomial<Coeff> const new_den = denominator * temp_other.numerator;
@@ -1049,7 +1082,7 @@ operator/(const Variable &v, const RationalFunction<Coeff> &rf) {
 template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const RationalFunction<Coeff> &rf, const Coeff &c) {
-    if (c == Coeff{}) throw std::runtime_error("Division by zero Coeff.");
+    if (c == Coeff{}) { throw std::invalid_argument("Division by zero Coeff."); }
     return rf / RationalFunction<Coeff>(c);
 }
 // Monomial / Polynomial -> RF
@@ -1058,7 +1091,9 @@ RationalFunction<Coeff>
 operator/(const Monomial<Coeff> &m, const Polynomial<Coeff> &p) {
     Polynomial<Coeff> temp_p = p;
     temp_p.simplify();
-    if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Monomial/Polynomial.");
+    if (temp_p.monomials.empty()) {
+        throw std::invalid_argument("Division by zero Polynomial in Monomial/Polynomial.");
+    }
     return RationalFunction<Coeff>(m) / RationalFunction<Coeff>(p);
 }
 // Var / Poly -> RF
@@ -1067,7 +1102,7 @@ RationalFunction<Coeff>
 operator/(const Variable &v, const Polynomial<Coeff> &p) {
     Polynomial<Coeff> temp_p = p;
     temp_p.simplify();
-    if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Var/Polynomial.");
+    if (temp_p.monomials.empty()) { throw std::invalid_argument("Division by zero Polynomial in Var/Polynomial."); }
     return RationalFunction<Coeff>(v) / RationalFunction<Coeff>(p);
 }
 // Poly / Var -> RF
@@ -1080,7 +1115,7 @@ operator/(const Polynomial<Coeff> &p, const Variable &v) {
 template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const Variable &v, const Monomial<Coeff> &m) {
-    if (m.coeff == Coeff{}) throw std::runtime_error("Division by zero Monomial in Var/Monomial.");
+    if (m.coeff == Coeff{}) { throw std::invalid_argument("Division by zero Monomial in Var/Monomial."); }
     return RationalFunction<Coeff>(v) / RationalFunction<Coeff>(m);
 }
 // Mono / Var -> RF
@@ -1095,28 +1130,28 @@ RationalFunction<Coeff>
 operator/(const Coeff &c, const Polynomial<Coeff> &p) {
     Polynomial<Coeff> temp_p = p;
     temp_p.simplify();
-    if (temp_p.monomials.empty()) throw std::runtime_error("Division by zero Polynomial in Coeff/Polynomial.");
+    if (temp_p.monomials.empty()) { throw std::invalid_argument("Division by zero Polynomial in Coeff/Polynomial."); }
     return RationalFunction<Coeff>(c) / RationalFunction<Coeff>(p);
 }
 // Poly / Coeff -> RF
 template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const Polynomial<Coeff> &p, const Coeff &c) {
-    if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Poly/Coeff");
+    if (c == Coeff{}) { throw std::invalid_argument("Div by 0 Coeff in Poly/Coeff"); }
     return RationalFunction<Coeff>(p) / RationalFunction<Coeff>(c);
 }
 // Coeff / Mono -> RF
 template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const Coeff &c, const Monomial<Coeff> &m) {
-    if (m.coeff == Coeff{}) throw std::runtime_error("Division by zero Monomial in Coeff/Monomial.");
+    if (m.coeff == Coeff{}) { throw std::invalid_argument("Division by zero Monomial in Coeff/Monomial."); }
     return RationalFunction<Coeff>(c) / RationalFunction<Coeff>(m);
 }
 // Mono / Coeff -> RF
 template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const Monomial<Coeff> &m, const Coeff &c) {
-    if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Mono/Coeff");
+    if (c == Coeff{}) { throw std::invalid_argument("Div by 0 Coeff in Mono/Coeff"); }
     return RationalFunction<Coeff>(m) / RationalFunction<Coeff>(c);
 }
 // Coeff / Var -> RF
@@ -1129,7 +1164,7 @@ operator/(const Coeff &c, const Variable &v) {
 template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const Variable &v, const Coeff &c) {
-    if (c == Coeff{}) throw std::runtime_error("Div by 0 Coeff in Var/Coeff");
+    if (c == Coeff{}) { throw std::invalid_argument("Div by 0 Coeff in Var/Coeff"); }
     return RationalFunction<Coeff>(v) / RationalFunction<Coeff>(c);
 }
 
@@ -1138,7 +1173,7 @@ template<typename Coeff>
 RationalFunction<Coeff>
 operator/(const Polynomial<Coeff> &p, const Monomial<Coeff> &m) {
     // Check if monomial is zero before creating RF
-    if (m.coeff == Coeff{}) { throw std::runtime_error("Division by zero Monomial in Polynomial/Monomial."); }
+    if (m.coeff == Coeff{}) { throw std::invalid_argument("Division by zero Monomial in Polynomial/Monomial."); }
     return RationalFunction<Coeff>(p) / RationalFunction<Coeff>(m);
 }
 
@@ -1149,27 +1184,18 @@ template<typename Coeff>
 std::ostream &
 operator<<(std::ostream &os, const RationalFunction<Coeff> &rf) {
     Polynomial<Coeff> one_poly(Monomial<Coeff>(Coeff(1)));
-    one_poly.simplify();
+    // Simplify might not be needed if constructor guarantees it
+    // one_poly.simplify();
     bool const den_is_one = (rf.denominator.monomials.size() == 1 && rf.denominator.monomials[0].vars.empty() &&
                              rf.denominator.monomials[0].coeff == Coeff(1));
-    if (den_is_one) {
-        if (rf.numerator.monomials.size() > 1) {
-            os << "(" << rf.numerator << ")";
-        } else {
-            os << rf.numerator;
-        }
-    } else {
-        if (rf.numerator.monomials.size() > 1) {
-            os << "(" << rf.numerator << ")";
-        } else {
-            os << rf.numerator;
-        }
-        os << " / ";
-        if (rf.denominator.monomials.size() > 1) {
-            os << "(" << rf.denominator << ")";
-        } else {
-            os << rf.denominator;
-        }
+
+    // Always parenthesize numerator
+    os << "(" << rf.numerator << ")";
+
+    if (!den_is_one) {
+        os << "/";
+        // Always parenthesize denominator
+        os << "(" << rf.denominator << ")";
     }
     return os;
 }

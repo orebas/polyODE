@@ -76,6 +76,7 @@ include_directories(${CERES_INCLUDE_DIRS})
 add_library(polyode_lib STATIC
     src/polynomial.cpp
     src/parameter_estimation.cpp
+    src/identifiability_analyzer.cpp
 )
 # Specify that the library includes headers from the include/ directory.
 # PUBLIC makes these includes available to targets linking against polyode_lib.
@@ -86,7 +87,7 @@ target_include_directories(polyode_lib PUBLIC tests)
 
 # Link Boost if the library itself needs compiled Boost components (unlikely for header-only like Odeint)
 # target_link_libraries(polyode_lib PUBLIC Boost::odeint) # Example
-
+target_link_libraries(polyode_lib PUBLIC Ceres::ceres)
 
 # --- Example Targets ---
 # Example 1: Lotka-Volterra
@@ -129,6 +130,20 @@ add_executable(blinded_estimation examples/blinded_estimation.cpp)
 target_link_libraries(blinded_estimation PRIVATE polyode_lib Boost::boost Ceres::ceres)
 if(UNIX AND NOT APPLE)
     target_link_libraries(blinded_estimation PRIVATE m)
+endif()
+
+# Example 7: Difficult Estimation Scenario
+add_executable(difficult_estimation examples/difficult_estimation.cpp)
+target_link_libraries(difficult_estimation PRIVATE polyode_lib Boost::boost Ceres::ceres)
+if(UNIX AND NOT APPLE)
+    target_link_libraries(difficult_estimation PRIVATE m)
+endif()
+
+# Example 8: Complex System Identifiability Analysis
+add_executable(complex_system_identifiability examples/complex_system_identifiability.cpp)
+target_link_libraries(complex_system_identifiability PRIVATE polyode_lib Boost::boost Ceres::ceres)
+if(UNIX AND NOT APPLE)
+    target_link_libraries(complex_system_identifiability PRIVATE m)
 endif()
 
 
@@ -180,7 +195,11 @@ add_polyode_test(rational_function_test)
 add_polyode_test(variable_test)
 add_polyode_test(ode_system_test)
 add_polyode_test(exponential_decay_test)
+add_polyode_test(parameter_estimation_test)
+target_link_libraries(parameter_estimation_test PRIVATE Ceres::ceres)
 
+# Add the new identifiability analyzer test
+add_polyode_test(identifiability_analyzer_test)
 
 # --- Compiler Warnings ---
 # Apply common warning flags to the library target

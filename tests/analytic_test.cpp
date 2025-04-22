@@ -85,11 +85,11 @@ TEST(AnalyticTest, SimpleOscillator) {
         EXPECT_NEAR(state[1], analytic[1], test_tolerance) << "Mismatch in y at t = " << current_t;
 
         // Check if we are done before taking the next step
-        if (current_t >= t_end - dt_integrate / 2.0) break;
+        if (current_t >= t_end - dt_integrate / 2.0) { break; }
 
         double next_report_t = current_t + dt_report;
         // Ensure we don't step over t_end
-        if (next_report_t > t_end) next_report_t = t_end;
+        if (next_report_t > t_end) { next_report_t = t_end; }
 
         // Calculate the time interval for this integration step
         double const integration_interval = next_report_t - current_t;

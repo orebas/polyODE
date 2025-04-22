@@ -45,7 +45,7 @@ echo "=======================================" >> const-fixes-report.txt
 echo "" >> const-fixes-report.txt
 
 # Define only the misc-const-correctness check
-CONST_CHECK="-checks=-*,misc-const-correctness,performance-avoid-endl"
+CONST_CHECK="-checks=-*,misc-const-correctness,performance-avoid-endl,readability-braces-around-statements"
 
 # Process each file and apply fixes
 for file in $SOURCE_FILES; do

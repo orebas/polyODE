@@ -166,26 +166,23 @@ TEST(RationalFunctionTest, ArithmeticWithPolynomials) {
 }
 
 TEST(RationalFunctionTest, Evaluation) {
-    // Use {} initializer
-    RationalFunction<double> const rf{ Polynomial<double>(x) + Polynomial<double>(Monomial<double>(1.0)),
-                                       Polynomial<double>(y) }; // (x+1)/y
-    std::map<Variable, double> const values = { { x, 3.0 }, { y, 2.0 } };
-    // (3+1)/2 = 4/2 = 2
-    EXPECT_DOUBLE_EQ(rf.evaluate<double>(values), 2.0);
+    Variable x("x");
+    Variable y("y");
+    RationalFunction<double> rf(x, y);
+    std::map<Variable, double> values = { { x, 6.0 }, { y, 2.0 } };
+    EXPECT_NEAR(rf.evaluate<double>(values), 3.0, 1e-9);
 
-    // Denominator evaluates to zero
-    std::map<Variable, double> const values_y0 = { { x, 3.0 }, { y, 0.0 } };
-    EXPECT_THROW(rf.evaluate<double>(values_y0), std::runtime_error); // Or check for infinity/NaN?
-                                                                      // Current implementation throws.
+    std::map<Variable, double> values_y0 = { { x, 6.0 }, { y, 0.0 } };
+    // Check division by zero
+    EXPECT_THROW({ (void)rf.evaluate<double>(values_y0); }, std::invalid_argument);
 
-    // Numerator evaluates to zero
-    std::map<Variable, double> const values_x_neg1 = { { x, -1.0 }, { y, 2.0 } };
-    // (-1+1)/2 = 0/2 = 0
-    EXPECT_DOUBLE_EQ(rf.evaluate<double>(values_x_neg1), 0.0);
+    // Check evaluation resulting in zero
+    std::map<Variable, double> values_x0 = { { x, 0.0 }, { y, 2.0 } };
+    EXPECT_DOUBLE_EQ(rf.evaluate<double>(values_x0), 0.0);
 
-    // Missing variable
-    std::map<Variable, double> const missing_y = { { x, 3.0 } };
-    EXPECT_THROW(rf.evaluate<double>(missing_y), std::runtime_error);
+    // Check missing variable - Polynomial::evaluate should throw runtime_error
+    std::map<Variable, double> missing_y = { { x, 3.0 } };
+    EXPECT_THROW({ (void)rf.evaluate<double>(missing_y); }, std::runtime_error);
 }
 
 TEST(RationalFunctionTest, Differentiation) {
@@ -225,34 +222,34 @@ TEST(RationalFunctionTest, Differentiation) {
 }
 
 TEST(RationalFunctionTest, StreamOutput) {
+    Variable x("x");
+    Variable y("y");
     std::stringstream ss;
 
-    // Simple: x/y
-    RationalFunction<double> const rf_xy{ Polynomial<double>(x), Polynomial<double>(y) };
-    ss.str("");
-    ss << rf_xy;
-    EXPECT_EQ(ss.str(), "(1*x)/(1*y)"); // Based on Polynomial/Monomial output
+    // Simple case x/y
+    RationalFunction<double> const rf1(x, y);
+    ss << rf1;
+    EXPECT_EQ(ss.str(), "(1*x)/(1*y)");
 
-    // Polynomial numerator/denominator
-    Polynomial<double> const num = Polynomial<double>(x) + Polynomial<double>(Monomial<double>(1.0));
-    Polynomial<double> const den = Polynomial<double>(y) - Polynomial<double>(Monomial<double>(2.0));
-    RationalFunction<double> const rf_complex{ num, den };
-    ss.str("");
-    ss << rf_complex;
-    // Order depends on simplify sort within polynomials
-    EXPECT_EQ(ss.str(), "(1 + 1*x)/(-2 + 1*y)"); // Assuming const < var
+    // More complex case (1+x)/(-2+y)
+    ss.str(""); // Clear stream
+    Polynomial<double> const num = Polynomial<double>(Monomial<double>(1.0)) + Polynomial<double>(x);
+    Polynomial<double> const den = Polynomial<double>(Monomial<double>(-2.0)) + Polynomial<double>(y);
+    RationalFunction<double> const rf2(num, den);
+    ss << rf2;
+    EXPECT_EQ(ss.str(), "(1 + 1*x)/(-2 + 1*y)");
 
-    // Constant: 5/1
-    RationalFunction<double> const rf_const{ Polynomial<double>(Monomial<double>(5.0)) };
+    // Test constant function (5/1)
     ss.str("");
+    RationalFunction<double> const rf_const(5.0);
     ss << rf_const;
-    EXPECT_EQ(ss.str(), "(5)/(1)"); // Denominator is normalized to 1
+    EXPECT_EQ(ss.str(), "(5)");
 
-    // Zero: 0/1
-    RationalFunction<double> const rf_zero{}; // Use default constructor
+    // Test zero function (0/1)
     ss.str("");
+    RationalFunction<double> const rf_zero;
     ss << rf_zero;
-    EXPECT_EQ(ss.str(), "(0)/(1)");
+    EXPECT_EQ(ss.str(), "(0)");
 }
 
 TEST(RationalFunctionTest, ComplexArithmetic) {
@@ -296,27 +293,36 @@ TEST(RationalFunctionTest, DifferentiationWithDerivatives) {
 }
 
 TEST(RationalFunctionTest, EvaluationWithNaN) {
-    // Test evaluation when intermediate steps might produce NaN/inf
-    // E.g., evaluate (x/y) * (y/x) where x or y is zero
-    RationalFunction<double> const rx(x);
-    RationalFunction<double> const ry(y);
-    RationalFunction<double> const rf = (rx / ry) * (ry / rx); // Should simplify to 1/1 (if GCD worked)
-                                                               // Without GCD: (xy) / (yx)
+    // Test evaluation leading to 0/0 or division by zero
+    // Test case: rf = (x - 1) / (y - 2)
+    Variable x("x");
+    Variable y("y");
+    Polynomial<double> const num = Polynomial<double>(x) - 1.0;
+    Polynomial<double> const den = Polynomial<double>(y) - 2.0;
+    RationalFunction<double> rf(num, den);
 
-    std::map<Variable, double> const values_x0 = { { x, 0.0 }, { y, 1.0 } };
-    // (0/1)*(1/0) -> Division by zero in intermediate evaluation likely
-    // Depending on how evaluate handles this, it might throw or return NaN.
-    // Our current Polynomial::evaluate throws on missing variable,
-    // and RationalFunction::evaluate throws on zero denominator value.
-    EXPECT_THROW(rf.evaluate<double>(values_x0), std::runtime_error);
+    // Case 1: Denominator is zero (y=2), Numerator non-zero (x=3)
+    std::map<Variable, double> const values_y2 = { { x, 3.0 }, { y, 2.0 } };
+    EXPECT_THROW({ (void)rf.evaluate<double>(values_y2); }, std::invalid_argument);
 
-    std::map<Variable, double> const values_y0 = { { x, 1.0 }, { y, 0.0 } };
-    EXPECT_THROW(rf.evaluate<double>(values_y0), std::runtime_error);
+    // Case 2: Numerator is zero (x=1), Denominator non-zero (y=3)
+    std::map<Variable, double> const values_x1 = { { x, 1.0 }, { y, 3.0 } };
+    EXPECT_DOUBLE_EQ(rf.evaluate<double>(values_x1), 0.0);
 
-    // Check the explicitly simplified version = 1
-    RationalFunction<double> const r_one{ Polynomial<double>(Monomial<double>(1.0)) };
-    std::map<Variable, double> const values_good = { { x, 1.0 }, { y, 1.0 } };
-    EXPECT_DOUBLE_EQ(r_one.evaluate<double>(values_good), 1.0);
-    // The non-simplified version (xy)/(yx) should also evaluate to 1 if x,y != 0
-    EXPECT_DOUBLE_EQ(rf.evaluate<double>(values_good), 1.0);
+    // Case 3: Both Numerator and Denominator are zero (x=1, y=2)
+    std::map<Variable, double> const values_x1_y2 = { { x, 1.0 }, { y, 2.0 } };
+    EXPECT_TRUE(std::isnan(rf.evaluate<double>(values_x1_y2)));
+
+    // Test case: rf = y(x-1)/x(x-1), which simplifies to y/x
+    Polynomial<double> const num_orig = Polynomial<double>(x) * Polynomial<double>(y) - Polynomial<double>(y);
+    Polynomial<double> const den_orig = Polynomial<double>(x) * Polynomial<double>(x) - Polynomial<double>(x);
+    RationalFunction<double> rf_orig(num_orig, den_orig);
+
+    // Evaluation at x=1 (original form is 0/0, evaluate should return NaN)
+    std::map<Variable, double> const values_x1_orig = { { x, 1.0 }, { y, 3.0 } };
+    EXPECT_TRUE(std::isnan(rf_orig.evaluate<double>(values_x1_orig)));
+
+    // Evaluation at x=0 (original is -y/0, simplified is y/0 -> div by zero)
+    std::map<Variable, double> const values_x0_orig = { { x, 0.0 }, { y, 3.0 } };
+    EXPECT_THROW({ (void)rf_orig.evaluate<double>(values_x0_orig); }, std::invalid_argument);
 }
