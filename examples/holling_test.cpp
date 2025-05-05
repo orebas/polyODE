@@ -1,5 +1,6 @@
 #include "polynomial.hpp"
 #include "polynomial_ode_system.hpp" // Use the renamed header
+#include "rational_function_operators.hpp"
 #include <boost/numeric/odeint.hpp>
 #include <cmath>
 #include <iomanip>
@@ -8,6 +9,7 @@
 #include <string>
 #include <vector>
 
+using namespace poly_ode;
 namespace odeint = boost::numeric::odeint;
 
 // Define the state type: a vector of doubles [x, y]
@@ -34,24 +36,17 @@ const Variable d_var("d", 0, true); // Predator death rate
 // Easier to define the Holling term first
 auto holling_response = (a_var * x_var) / (1.0 + b_var * x_var);
 
-// Prey equation: r*x - (r/K)*x*x - H*y  (Requires division by K_var)
-// Need to be careful with types. Let's ensure K is treated as a RationalFunction early.
-auto logistic_growth = r_var * x_var - (r_var * x_var * x_var) / K_var;
+// Prey equation: r*x*(1 - x/K) = r*x - (r/K)*x*x
+auto logistic_growth = r_var * x_var * (1.0 - x_var / K_var);
 auto predation = holling_response * y_var;
 
 auto dx_dt_rf = logistic_growth - predation;
 
 // Predator equation: -d*y + c*H*y
-auto predator_growth = c_var * predation; // c * (a*x*y / (1+b*x))
+auto predator_growth = c_var * holling_response * y_var;
 auto predator_death = d_var * y_var;
 
 auto dy_dt_rf = predator_growth - predator_death;
-
-// Type verification (optional)
-static_assert(std::is_same_v<decltype(dx_dt_rf), RationalFunction<double>>,
-              "dx_dt_rf should be RationalFunction<double>");
-static_assert(std::is_same_v<decltype(dy_dt_rf), RationalFunction<double>>,
-              "dy_dt_rf should be RationalFunction<double>");
 
 // --- Observer ---
 struct holling_observer {

@@ -1,3 +1,35 @@
+Okay, let's review the remaining TODOs and potential refinements for the IdentifiabilityAnalyzer:
+Sophisticated Nullspace Analysis (for deficiency > 1):
+Current: When rank deficiency 
+d
+>
+1
+d>1, we simply find the parameter index j where the sum sum_k |null_space(j,k)| is largest.
+TODO: This might not be optimal if different nullspace vectors highlight different parameter combinations. We might need more advanced techniques like QR pivoting on the nullspace basis or analyzing the structure more deeply to choose which parameter(s) to fix to best resolve all dependencies. (Mentioned when discussing deficiency > 1).
+Parameter Fixing Strategy:
+Current: When fixing a parameter theta_fix, we assign it the numerical value it had in the first random test point generated in that iteration (first_point_param_values.at(param_to_fix)).
+TODO: This is somewhat arbitrary. Consider better strategies: fix to a user-provided default, fix to 0 or 1, fix to the average value across test points (if applicable), or require user input if ambiguity arises. (Noted in the fixing code block).
+Robust Random Sampling Strategy:
+Current: Uses a simple std::uniform_real_distribution(0.1, 2.0) for all parameters and initial conditions assigned random values. Model parameters fixed across points aren't explicitly handled yet (though fixed ICs are).
+TODO: Implement better sampling based on parameter type (e.g., log-uniform for kinetic rates). Allow users to specify sampling ranges. Properly implement the strategy of using the same kinetic parameter values but different initial condition values across the num_test_points. (Noted in the point generation code block).
+MaxParams Limitation for AD:
+Current: Uses a hardcoded constexpr int MaxParams = 10; which limits the number of parameters analyzable in any single iteration due to ceres::Jet requirements in DynamicAutoDiffCostFunction.
+TODO: Increase MaxParams (simple but inefficient/limited), or investigate alternative approaches like manual Jacobian calculation (more complex) or different Ceres cost function types to handle arbitrary numbers of parameters more gracefully. (Discussed when MaxParams was added).
+Error Handling & Results Reporting:
+Current: Uses std::cerr for warnings/errors, returns potentially incomplete results on failure.
+TODO: Provide more structured error reporting, potentially adding status flags or error messages to the AnalysisResults struct to clearly indicate success, failure, or detected ambiguities.
+Refine Minimal Derivative Logic (Edge Cases):
+Current: The logic seems to work for the tested cases.
+TODO: Consider edge cases like systems where no derivatives are needed (rank achieved with order 0), or systems where even the maximum provided derivative order isn't sufficient. Ensure the loops and indexing handle these correctly.
+Testing Coverage:
+Current: We have good tests for basic identifiable, non-identifiable (sum), and derivative-dependent cases.
+TODO: Add tests for more complex biological models, systems with higher deficiency (
+d
+>
+1
+d>1), systems where different observables do end up requiring different minimal orders, and edge cases mentioned above.
+
+
 Algorithm: Multipoint Local Identifiability Analysis via Sensitivity Matrix Rank
 
 1. Introduction and Motivation

@@ -2,6 +2,7 @@
 #include "observed_ode_system.hpp"
 #include "parameter_estimation.hpp"
 #include "polynomial.hpp"
+#include "rational_function_operators.hpp"
 #include <cmath> // For std::fabs
 #include <iostream>
 #include <limits> // For std::numeric_limits
@@ -9,9 +10,11 @@
 #include <random> // For noise generation in helper
 #include <vector>
 
+using namespace poly_ode;
+
 // Define a local helper function for generating Lotka-Volterra data
 namespace {
-poly_ode::ExperimentalData
+ExperimentalData
 generate_noisy_lv_data_local(double alpha,
                              double beta,
                              double delta,
@@ -21,12 +24,12 @@ generate_noisy_lv_data_local(double alpha,
                              const std::vector<double> &times,
                              double noise_stddev,
                              double dt_sim) {
-    poly_ode::ExperimentalData data;
+    ExperimentalData data;
     data.times = times;
 
     // Define observables
-    poly_ode::Observable x_obs("x_obs");
-    poly_ode::Observable y_obs("y_obs");
+    Observable x_obs("x_obs");
+    Observable y_obs("y_obs");
 
     // Initialize measurement vectors
     data.measurements[x_obs] = std::vector<double>(times.size());
@@ -70,20 +73,21 @@ main() {
     const Variable lv_delta("delta", 0, true);
     const Variable lv_gamma("gamma", 0, true);
 
-    RationalFunction<double> dx_dt_rf = lv_alpha * lv_x - lv_beta * lv_x * lv_y;
-    RationalFunction<double> dy_dt_rf = lv_delta * lv_x * lv_y - lv_gamma * lv_y;
+    // Define differential equations using natural syntax
+    auto dx_dt_rf = lv_alpha * lv_x - lv_beta * lv_x * lv_y;
+    auto dy_dt_rf = lv_delta * lv_x * lv_y - lv_gamma * lv_y;
+
     std::vector<RationalFunction<double>> equations = { dx_dt_rf, dy_dt_rf };
     std::vector<Variable> state_variables = { lv_x, lv_y };
     std::vector<Variable> params = { lv_alpha, lv_beta, lv_delta, lv_gamma };
 
     // Define observables
-    poly_ode::Observable x_obs("x_obs");
-    poly_ode::Observable y_obs("y_obs");
-    std::map<poly_ode::Observable, RationalFunction<double>> obs_defs = { { x_obs, RationalFunction<double>(lv_x) },
-                                                                          { y_obs, RationalFunction<double>(lv_y) } };
+    Observable x_obs("x_obs");
+    Observable y_obs("y_obs");
+    std::map<Observable, RationalFunction<double>> obs_defs = { { x_obs, lv_x }, { y_obs, lv_y } };
 
     // Create the observed system
-    poly_ode::ObservedOdeSystem system(equations, state_variables, params, obs_defs);
+    ObservedOdeSystem system(equations, state_variables, params, obs_defs);
 
     // Same true values
     const double alpha_true = 1.1;
@@ -108,12 +112,12 @@ main() {
     double dt_sim = 0.01;
 
     // Use our local generate_noisy_lv_data function
-    poly_ode::ExperimentalData data = generate_noisy_lv_data_local(
+    ExperimentalData data = generate_noisy_lv_data_local(
       alpha_true, beta_true, delta_true, gamma_true, x0_true, y0_true, times, noise_stddev, dt_sim);
 
     // 4. Set up Parameter Estimation Problem
     double dt_est = 0.001;
-    poly_ode::ParameterEstimationProblem problem(
+    ParameterEstimationProblem problem(
       system, params_to_estimate, fixed_params, initial_conditions_to_estimate, fixed_initial_conditions, data, dt_est);
 
     // 5. Solve and Print (using WORSE initial guesses)

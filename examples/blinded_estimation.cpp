@@ -2,12 +2,15 @@
 #include "observed_ode_system.hpp"
 #include "parameter_estimation.hpp"
 #include "polynomial.hpp"
+#include "rational_function_operators.hpp"
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <map>
 #include <random>
 #include <vector>
+
+using namespace poly_ode;
 
 int
 main() {
@@ -20,29 +23,21 @@ main() {
     Variable const a("a", 0, true); // Parameter a
     Variable const b("b", 0, true); // Parameter b
 
-    // Create equations: x' = -a*x; y' = b*y
-    Polynomial<double> const Pa(a);
-    Polynomial<double> const Pb(b);
-    Polynomial<double> const Px(x);
-    Polynomial<double> const Py(y);
-
-    // dx/dt = -a*x
-    RationalFunction<double> const x_rhs = Polynomial<double>() - Pa * Px;
-    // dy/dt = b*y
-    RationalFunction<double> const y_rhs = Pb * Py;
+    // Create equations using natural syntax: x' = -a*x; y' = b*y
+    auto x_rhs = -a * x;
+    auto y_rhs = b * y;
 
     std::vector<Variable> const state_vars = { x, y };
     std::vector<Variable> const params = { a, b }; // Define parameter vector
     std::vector<RationalFunction<double>> const equations = { x_rhs, y_rhs };
 
     // Define observables - x and y are our observables
-    poly_ode::Observable x_obs("x_obs");
-    poly_ode::Observable y_obs("y_obs");
-    std::map<poly_ode::Observable, RationalFunction<double>> obs_defs = { { x_obs, RationalFunction<double>(Px) },
-                                                                          { y_obs, RationalFunction<double>(Py) } };
+    Observable x_obs("x_obs");
+    Observable y_obs("y_obs");
+    std::map<Observable, RationalFunction<double>> obs_defs = { { x_obs, x }, { y_obs, y } };
 
     // Create the observed system
-    poly_ode::ObservedOdeSystem system(equations, state_vars, params, obs_defs);
+    ObservedOdeSystem system(equations, state_vars, params, obs_defs);
 
     // --- 2. Generate Synthetic Experimental Data with Noise ---
     // True parameter values (hidden from estimation)
@@ -57,7 +52,7 @@ main() {
     std::normal_distribution<> noise(0.0, 0.001); // 0.1% relative noise (sigma = 0.001)
 
     // Create data points
-    poly_ode::ExperimentalData data;
+    ExperimentalData data;
     data.times = { 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 2.5, 3.0 };
 
     // Initialize measurement vectors
@@ -104,13 +99,13 @@ main() {
 
     // Create the problem instance
     try {
-        poly_ode::ParameterEstimationProblem problem(system,
-                                                     params_to_estimate,
-                                                     fixed_params,
-                                                     initial_conditions_to_estimate,
-                                                     fixed_initial_conditions,
-                                                     data,
-                                                     0.01); // dt for ODE solver
+        ParameterEstimationProblem problem(system,
+                                           params_to_estimate,
+                                           fixed_params,
+                                           initial_conditions_to_estimate,
+                                           fixed_initial_conditions,
+                                           data,
+                                           0.01); // dt for ODE solver
 
         // --- 4. Solve ---
         // Deliberately use incorrect initial guesses (different from true values)

@@ -2,6 +2,7 @@
 #include "observed_ode_system.hpp"
 #include "parameter_estimation.hpp"
 #include "polynomial.hpp"
+#include "rational_function_operators.hpp"
 #include <cmath>
 #include <iostream>
 #include <map>
@@ -16,9 +17,7 @@ main() {
     Variable const k("k", 0, true); // Parameter k
 
     // dx/dt = -k*x
-    Polynomial<double> const Pk(k);
-    Polynomial<double> const Px(x);
-    RationalFunction<double> const rhs = Polynomial<double>() - Pk * Px;
+    auto rhs = -k * x;
 
     std::vector<Variable> const state_vars = { x };
     std::vector<Variable> const params = { k }; // Define parameter vector
@@ -26,7 +25,7 @@ main() {
 
     // Define observables - in this case, x itself is our observable
     poly_ode::Observable x_obs("x_obs");
-    std::map<poly_ode::Observable, RationalFunction<double>> obs_defs = { { x_obs, RationalFunction<double>(Px) } };
+    std::map<poly_ode::Observable, RationalFunction<double>> obs_defs = { { x_obs, x } };
 
     // Create the observed system
     poly_ode::ObservedOdeSystem system(equations, state_vars, params, obs_defs);

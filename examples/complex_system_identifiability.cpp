@@ -24,6 +24,7 @@
 #include "identifiability_analyzer.hpp"
 #include "observed_ode_system.hpp"
 #include "polynomial.hpp"
+#include "rational_function_operators.hpp"
 
 #include <iomanip>
 #include <iostream>
@@ -115,31 +116,28 @@ main() {
         complex_system.state_variables = { x1, x2, x3, w, z, u };
         complex_system.parameters = { theta, k1, k2, k };
 
-        // Define the differential equations
-        complex_system.equations = {
-            // x1_dot = x2
-            RationalFunction<double>(x2),
+        // Define the differential equations using the new operator overloads
+        complex_system.equations = { // x1_dot = x2
+                                     x2,
 
-            // x2_dot = x3
-            RationalFunction<double>(x3),
+                                     // x2_dot = x3
+                                     x3,
 
-            // x3_dot = theta*x1 + x2*x2
-            Polynomial<double>(theta) * Polynomial<double>(x1) + Polynomial<double>(x2) * Polynomial<double>(x2),
+                                     // x3_dot = theta*x1 + x2*x2
+                                     theta * x1 + x2 * x2,
 
-            // w_dot = -(k1+k2)*w
-            Polynomial<double>() - (Polynomial<double>(k1) + Polynomial<double>(k2)) * Polynomial<double>(w),
+                                     // w_dot = -(k1+k2)*w
+                                     -(k1 + k2) * w,
 
-            // z_dot = k*k*z
-            Polynomial<double>(k) * Polynomial<double>(k) * Polynomial<double>(z),
+                                     // z_dot = k*k*z
+                                     k * k * z,
 
-            // u_dot = -u
-            Polynomial<double>() - Polynomial<double>(u)
+                                     // u_dot = -u
+                                     -u
         };
 
         // Define the observable equations
-        complex_system.observable_definitions = { { y1_obs, RationalFunction<double>(x1) },
-                                                  { y2_obs, RationalFunction<double>(w) },
-                                                  { y3_obs, RationalFunction<double>(z) } };
+        complex_system.observable_definitions = { { y1_obs, x1 }, { y2_obs, w }, { y3_obs, z } };
 
         // Print summary of the system
         std::cout << "Complex System Summary:" << std::endl;

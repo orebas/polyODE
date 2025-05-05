@@ -61,15 +61,17 @@ endif()
 # Add the project's include directory
 include_directories(include)
 
-# Find Boost (needed by the library and potentially examples/tests)
-find_package(Boost REQUIRED)
-# Find Ceres (needed for jacobian_test example)
-find_package(Ceres REQUIRED)
+# Find dependencies using find_package. vcpkg integration relies on this.
+find_package(Boost REQUIRED) # vcpkg handles finding this via toolchain
+find_package(Ceres REQUIRED) # vcpkg handles finding this via toolchain
+# GTest will be found here now instead of FetchContent
+# find_package(GTest REQUIRED) # Moved lower, near testing section
 
-# Add Boost include directories globally for simplicity, or target_include_directories per target
-include_directories(${Boost_INCLUDE_DIRS})
-# Add Ceres include directory
-include_directories(${CERES_INCLUDE_DIRS})
+# Remove global include directories for dependencies managed by vcpkg.
+# target_link_libraries with imported targets (e.g., Boost::boost, Ceres::ceres)
+# should propagate include directories.
+# include_directories(${Boost_INCLUDE_DIRS}) # Removed
+# include_directories(${CERES_INCLUDE_DIRS}) # Removed
 
 # --- Library Target ---
 # Define the library using sources from src/
@@ -77,6 +79,8 @@ add_library(polyode_lib STATIC
     src/polynomial.cpp
     src/parameter_estimation.cpp
     src/identifiability_analyzer.cpp
+    src/approximation/observable_approximator.cpp # Base class (might be header-only, but good practice)
+    src/approximation/aa_approximator.cpp       # AAA implementation
 )
 # Specify that the library includes headers from the include/ directory.
 # PUBLIC makes these includes available to targets linking against polyode_lib.
@@ -86,8 +90,9 @@ target_include_directories(polyode_lib PUBLIC include)
 target_include_directories(polyode_lib PUBLIC tests)
 
 # Link Boost if the library itself needs compiled Boost components (unlikely for header-only like Odeint)
-# target_link_libraries(polyode_lib PUBLIC Boost::odeint) # Example
-target_link_libraries(polyode_lib PUBLIC Ceres::ceres)
+# Note: Boost::boost is a common interface target for header-only usage.
+# If specific compiled components are needed, list them in find_package and link e.g., Boost::system
+target_link_libraries(polyode_lib PUBLIC Ceres::ceres) # Keep Ceres linking
 
 # --- Example Targets ---
 # Example 1: Lotka-Volterra
@@ -148,25 +153,29 @@ endif()
 
 
 # --- Testing Framework (Google Test) ---
-# Use FetchContent to download and configure Google Test
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    # Specify the repository and tag (version)
-    URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
-)
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-# This is often needed when integrating gtest via FetchContent
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+# Remove FetchContent block for googletest
+# include(FetchContent)
+# FetchContent_Declare(
+#     googletest
+#     # Specify the repository and tag (version)
+#     URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+# )
+# # For Windows: Prevent overriding the parent project's compiler/linker settings
+# # This is often needed when integrating gtest via FetchContent
+# set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+# FetchContent_MakeAvailable(googletest)
+#
+# # Disable warnings-as-errors for Google Test targets (no longer needed)
+# # set_target_properties(gtest gmock PROPERTIES COMPILE_WARNING_AS_ERROR FALSE)
 
-# Disable warnings-as-errors for Google Test targets
-set_target_properties(gtest gmock PROPERTIES COMPILE_WARNING_AS_ERROR FALSE)
+# Find GTest package provided by vcpkg
+find_package(GTest REQUIRED)
 
 # Enable CTest support
 enable_testing()
 
 # Include GoogleTest CMake module (provides gtest_discover_tests)
+# This should work with the find_package version as well
 include(GoogleTest)
 
 # --- Test Targets ---
@@ -174,8 +183,8 @@ include(GoogleTest)
 function(add_polyode_test test_name)
     add_executable(${test_name} tests/${test_name}.cpp)
     # Link the test executable against our library and the gtest_main library
-    # gtest_main provides a main() function and links gtest and gmock
-    target_link_libraries(${test_name} PRIVATE polyode_lib gtest_main)
+    # Use the imported target GTest::gtest_main provided by find_package(GTest)
+    target_link_libraries(${test_name} PRIVATE polyode_lib GTest::gtest_main)
     # Link math library if needed (based on original CMakeLists)
     if(UNIX AND NOT APPLE)
         target_link_libraries(${test_name} PRIVATE m)
@@ -200,6 +209,10 @@ target_link_libraries(parameter_estimation_test PRIVATE Ceres::ceres)
 
 # Add the new identifiability analyzer test
 add_polyode_test(identifiability_analyzer_test)
+
+# Add the new approximation test
+add_polyode_test(approximation_test)
+# target_link_libraries(approximation_test PRIVATE Ceres::ceres) # No longer needed
 
 # --- Compiler Warnings ---
 # Apply common warning flags to the library target
