@@ -24,6 +24,14 @@ namespace examples {
 poly_ode::test_utils::OdeSystemTestBuilder
 define_lotka_volterra_system();
 
+// Test model for unidentifiability: dx/dt = (a+b)x, y=x
+poly_ode::test_utils::OdeSystemTestBuilder
+define_trivial_unident_system();
+
+// From test_models.jl: D(x1)=-ax1, D(x2)=bx2, D(x3)=c(x1+x2), y1=x3
+poly_ode::test_utils::OdeSystemTestBuilder
+define_sum_test_system();
+
 // Add declarations for other systems here as they are ported
 // e.g.:
 // poly_ode::test_utils::OdeSystemTestBuilder define_fitzhugh_nagumo_system();

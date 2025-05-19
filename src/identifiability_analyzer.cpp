@@ -304,10 +304,24 @@ IdentifiabilityAnalyzer::determine_square_system_orders(const std::vector<Variab
         // --- 3. Count total unknowns and equations ---
         // Unknowns: Identifiable params + unique state vars (including derivs) + unique obs derivs
         // Note: needed_vars already contains all unique variables involved.
-        size_t num_unknowns = needed_vars.size();
+        size_t num_actual_unknowns = 0;
+        std::set<Variable> identifiable_params_set(identifiable_params.begin(), identifiable_params.end());
+        for (const auto &var_in_needed : needed_vars) {
+            if (var_in_needed.is_constant) {                        // It's a parameter
+                if (identifiable_params_set.count(var_in_needed)) { // It's an identifiable parameter
+                    num_actual_unknowns++;
+                }
+                // Else, it's a non-identifiable parameter that will be fixed, so don't count it as an unknown for the
+                // solver.
+            } else { // It's a state variable or its derivative
+                num_actual_unknowns++;
+            }
+        }
+        size_t num_unknowns = num_actual_unknowns; // Use this refined count for squareness check
+
         size_t num_equations = num_observable_eqs + num_state_deriv_eqs;
 
-        std::cout << "    Total Unknowns: " << num_unknowns << std::endl;
+        std::cout << "    Total Unknowns (refined count): " << num_unknowns << std::endl;
         std::cout << "    Total Equations: " << num_equations << std::endl;
 
         // --- 4. Check for squareness and decide next step ---

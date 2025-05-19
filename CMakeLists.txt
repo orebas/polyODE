@@ -64,6 +64,8 @@ include_directories(include)
 # Find dependencies using find_package. vcpkg integration relies on this.
 find_package(Boost REQUIRED) # vcpkg handles finding this via toolchain
 find_package(Ceres REQUIRED) # vcpkg handles finding this via toolchain
+find_package(PkgConfig REQUIRED) # Needed to find msolve via its .pc file
+pkg_check_modules(MSOLVE REQUIRED IMPORTED_TARGET msolve) # vcpkg ensures msolve.pc is findable
 # GTest will be found here now instead of FetchContent
 # find_package(GTest REQUIRED) # Moved lower, near testing section
 
@@ -83,6 +85,8 @@ add_library(polyode_lib STATIC
     src/approximation/observable_approximator.cpp # Base class (might be header-only, but good practice)
     src/approximation/aa_approximator.cpp       # AAA implementation
     src/phc_solver.cpp                          # PHC solver implementation
+    src/ceres_algebraic_solver.cpp              # Added CeresAlgebraicSolver
+    src/MSolveSolver.cpp                        # MSolve solver implementation
     src/example_systems.cpp                     # Added to compile and link with the library
 )
 # Specify that the library includes headers from the include/ directory.
@@ -95,7 +99,7 @@ target_include_directories(polyode_lib PUBLIC tests)
 # Link Boost if the library itself needs compiled Boost components (unlikely for header-only like Odeint)
 # Note: Boost::boost is a common interface target for header-only usage.
 # If specific compiled components are needed, list them in find_package and link e.g., Boost::system
-target_link_libraries(polyode_lib PUBLIC Ceres::ceres) # Keep Ceres linking
+target_link_libraries(polyode_lib PUBLIC Ceres::ceres PkgConfig::MSOLVE) # Link msolve via PkgConfig imported target
 
 # --- Example Targets ---
 # Example 1: Lotka-Volterra

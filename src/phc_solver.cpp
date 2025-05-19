@@ -156,6 +156,11 @@ PHCSolver::solve(const AlgebraicSystem &system) {
         throw std::runtime_error("PHC dict file '" + output_file_dict + "' was created but is empty.");
     }
 
+    // ---- START MODIFIED DEBUG LOG FOR DICT CONTENT ----
+    std::cout << "    [PHCSolver] Raw Dictionary File Content (first ~2000 chars):\n------\n";
+    std::cout << dict_content.substr(0, 2000) << (dict_content.length() > 2000 ? "..." : "") << "\n------" << std::endl;
+    // ---- END MODIFIED DEBUG LOG ----
+
     // 6. Run Python script to convert dict string to JSON using std::system
     std::string json_error_file = output_file_json + ".err";
     std::string cmd_json_system = "cat \"" + output_file_dict + "\" | python3 \"" + python_script_path_ + "\" > \"" +

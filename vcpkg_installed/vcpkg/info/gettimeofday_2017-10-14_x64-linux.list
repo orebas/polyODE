@@ -1,0 +1,15 @@
+x64-linux/
+x64-linux/debug/
+x64-linux/debug/lib/
+x64-linux/debug/lib/manual-link/
+x64-linux/debug/lib/manual-link/libgettimeofday.a
+x64-linux/include/
+x64-linux/include/gettimeofday.h
+x64-linux/lib/
+x64-linux/lib/manual-link/
+x64-linux/lib/manual-link/libgettimeofday.a
+x64-linux/share/
+x64-linux/share/gettimeofday/
+x64-linux/share/gettimeofday/copyright
+x64-linux/share/gettimeofday/vcpkg.spdx.json
+x64-linux/share/gettimeofday/vcpkg_abi_info.txt

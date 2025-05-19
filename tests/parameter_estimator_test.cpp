@@ -8,6 +8,7 @@
 #include <boost/numeric/odeint.hpp>        // For integrate_const
 
 // Include solver components
+#include "MSolveSolver.hpp"      // Include MSolveSolver - Corrected Casing
 #include "algebraic_system.hpp"  // Needed by solver interface/implementations
 #include "phc_solver.hpp"        // Include the specific solver implementation
 #include "polynomial_solver.hpp" // Correct base class and solution types
@@ -222,6 +223,159 @@ TEST(ParameterEstimatorIntegrationTest, SolveSimpleSystemWithPHC) { // Renamed t
     PolynomialSolutionSet solutions;
     ASSERT_NO_THROW(solutions = estimator.solve());
     ASSERT_FALSE(solutions.empty()) << "PHC solver returned no solutions.";
+
+    // --- 7. Process Solutions and Validate --- //
+    std::vector<EstimationResult> valid_results;
+    double validation_rmse_threshold = 1e-5; // Expect low error for noise-free data
+    double integration_tol = 1e-7;
+    double integration_dt = 0.001; // Hint for integrator
+
+    // Need to reconstruct the ExperimentalData structure used for fitting
+    ExperimentalData original_data;
+    original_data.times = times;
+    original_data.measurements[y_obs] = y_values;
+
+    ASSERT_NO_THROW({
+        valid_results = estimator.process_solutions_and_validate(solutions,
+                                                                 system,        // Pass the original ObservedOdeSystem
+                                                                 original_data, // Pass the reconstructed data
+                                                                 t_start,       // Pass t_initial (which was 0.0)
+                                                                 validation_rmse_threshold,
+                                                                 integration_tol, // abs_err
+                                                                 integration_tol, // rel_err
+                                                                 integration_dt   // dt_hint
+                                                                                  // real_tolerance defaults to 1e-6
+        );
+    });
+
+    // --- 8. Verify Final Result --- //
+    ASSERT_GE(valid_results.size(), 1) << "Expected at least one valid solution after validation.";
+
+    bool found_true_solution = false;
+    double check_tol = 1e-4; // Tolerance for checking final result values
+
+    for (const auto &result : valid_results) {
+        // Check if this result matches the true values
+        bool p1_match = result.parameters.count(p1) && std::abs(result.parameters.at(p1) - p1_true) < check_tol;
+        bool p2_match = result.parameters.count(p2) && std::abs(result.parameters.at(p2) - p2_true) < check_tol;
+        bool x1_match =
+          result.initial_conditions.count(x1) && std::abs(result.initial_conditions.at(x1) - x1_0_true) < check_tol;
+        bool x2_match =
+          result.initial_conditions.count(x2) && std::abs(result.initial_conditions.at(x2) - x2_0_true) < check_tol;
+        bool error_match = result.error_metric < validation_rmse_threshold;
+
+        if (p1_match && p2_match && x1_match && x2_match && error_match) {
+            found_true_solution = true;
+            std::cout << "  Found valid solution matching true parameters and ICs." << std::endl;
+            std::cout << "    p1 = " << result.parameters.at(p1) << std::endl;
+            std::cout << "    p2 = " << result.parameters.at(p2) << std::endl;
+            std::cout << "    x1(0) = " << result.initial_conditions.at(x1) << std::endl;
+            std::cout << "    x2(0) = " << result.initial_conditions.at(x2) << std::endl;
+            std::cout << "    RMSE = " << result.error_metric << std::endl;
+            break; // Found the one we care about for this test
+        }
+    }
+
+    EXPECT_TRUE(found_true_solution) << "No valid solution matching the true parameters/ICs was found.";
+
+    // --- Old verification logic removed --- //
+}
+
+// --- Phase 2/3 Test: End-to-End Setup and Solve using MSolve --- //
+TEST(ParameterEstimatorIntegrationTest, SolveSimpleSystemWithMSolve) {
+    // --- 1. Define Minimal System --- //
+    Variable x1("x1");
+    Variable x2("x2");
+    Variable p1("p1", 0, true);
+    Variable p2("p2", 0, true);
+    Observable y_obs("y");
+    ObservedOdeSystem system;
+    system.state_variables = { x1, x2 };
+    system.parameters = { p1, p2 };
+    system.equations.push_back(p1 * x1);      // dx1/dt
+    system.equations.push_back(p2 * x2 + x1); // dx2/dt
+    system.observable_definitions[y_obs] = Polynomial<double>(x2);
+
+    // --- Define True Values --- //
+    const double p1_true = -0.5;
+    const double p2_true = 0.2;
+    const double x1_0_true = 5.0;
+    const double x2_0_true = 2.0;
+    std::map<Variable, double> true_params = { { p1, p1_true }, { p2, p2_true } };
+    std::vector<double> true_ics = { x1_0_true, x2_0_true };
+
+    // --- 2. Generate Data & Fit Approximator --- //
+    auto system_func = [&](const std::vector<double> &state, std::vector<double> &dxdt, double /*t*/) {
+        std::map<Variable, double> current_vals = true_params;
+        current_vals[x1] = state[0];
+        current_vals[x2] = state[1];
+        dxdt.resize(2);
+        // Use evaluate directly on the RationalFunction from system.equations
+        dxdt[0] = system.equations[0].evaluate(current_vals);
+        dxdt[1] = system.equations[1].evaluate(current_vals);
+    };
+
+    // Restore data generation logic
+    std::vector<double> times;
+    std::vector<double> y_values;
+    std::vector<double> current_state = true_ics;
+    double t_start = 0.0, t_end = 3.0, dt = 0.1, dt_sim = 0.01;
+    times.push_back(t_start);
+    std::map<Variable, double> current_vals_map = { { x1, current_state[0] }, { x2, current_state[1] } };
+    y_values.push_back(system.observable_definitions.at(y_obs).evaluate(current_vals_map));
+
+    for (double t = dt_sim; t <= t_end + 1e-9; t += dt_sim) {
+        // Use solve_ode_fixed_step_local or similar defined in test_utils/ode_solver_utils
+        current_state = solve_ode_fixed_step_local(dt_sim, current_state, system_func, dt_sim);
+        if (std::fmod(t, dt) < 1e-9 || std::fmod(t, dt) > dt - 1e-9) { // Check if close to a dt interval
+            times.push_back(t);
+            current_vals_map = { { x1, current_state[0] }, { x2, current_state[1] } };
+            y_values.push_back(system.observable_definitions.at(y_obs).evaluate(current_vals_map));
+        }
+    }
+    ASSERT_FALSE(times.empty()); // Sanity check
+    ASSERT_EQ(times.size(), y_values.size());
+
+    AAApproximator<double> approximator(1e-12, 100, 5);
+    ASSERT_NO_THROW(approximator.fit(times, y_values));
+
+    // --- 3. Run Setup --- //
+    std::vector<Variable> params_to_analyze = { p1, p2, x1, x2 };
+    EstimationSetupData setup_data;
+    ASSERT_NO_THROW({ setup_data = setup_estimation(system, params_to_analyze, 3, 1, 1e-9, 1e-6); });
+
+    // --- 4. Approximate Derivatives at t_eval (BEFORE creating ParameterEstimator) --- //
+    double t_eval = 1.5;
+    std::map<Variable, double> approx_obs_values;
+    int max_obs_deriv = 0;
+    if (setup_data.required_derivative_orders.count(y_obs)) {
+        max_obs_deriv = setup_data.required_derivative_orders.at(y_obs);
+    }
+    std::cout << "Approximating observable derivatives up to order: " << max_obs_deriv << std::endl;
+    for (int order = 0; order <= max_obs_deriv; ++order) {
+        Variable obs_deriv_var(y_obs.name, order);
+        // Use the previously fitted approximator
+        ASSERT_NO_THROW(approx_obs_values[obs_deriv_var] = approximator.derivative(t_eval, order));
+        std::cout << "  Approx " << obs_deriv_var << " = " << approx_obs_values[obs_deriv_var] << std::endl;
+    }
+    // Ensure the map is actually populated before passing it
+    ASSERT_FALSE(approx_obs_values.empty());
+    // DEBUG: Print map before passing
+    std::cout << "DEBUG [Test]: approx_obs_values size before estimator creation: " << approx_obs_values.size()
+              << std::endl;
+    for (const auto &pair : approx_obs_values) {
+        std::cout << "  [Test] Key: " << pair.first << " -> Val: " << pair.second << std::endl;
+    }
+
+    // --- 5. Instantiate Solver and Estimator (AFTER getting approx values) --- //
+    MSolveSolver msolve_solver; // Use MSolveSolver
+    // Pass the populated map to the constructor
+    ParameterEstimator estimator(msolve_solver, setup_data, approx_obs_values, t_eval); // Use msolve_solver
+
+    // --- 6. Solve System --- //
+    PolynomialSolutionSet solutions;
+    ASSERT_NO_THROW(solutions = estimator.solve());
+    ASSERT_FALSE(solutions.empty()) << "MSolve solver returned no solutions."; // Updated message
 
     // --- 7. Process Solutions and Validate --- //
     std::vector<EstimationResult> valid_results;

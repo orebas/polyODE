@@ -4,6 +4,7 @@
     "dependencies": [
         "boost-odeint",
         "ceres",
-        "gtest"
+        "gtest",
+        "msolve"
     ]
 }

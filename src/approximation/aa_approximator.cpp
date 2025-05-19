@@ -270,31 +270,81 @@ AAApproximator<T>::evaluate_templated(U t) const {
     const auto &f = aaa_.function_values();
     const auto &w = aaa_.weights();
 
-    if (z.empty()) { return U(0.0); } // Or should this throw?
+    if (z.empty()) { return U(0.0); }
+
+    int break_index = -1;
+    // Tolerance inspired by Julia: if ( (t-z_j)^2 < sqrt(1e-13) ) then switch formula.
+    // sqrt(1e-13) is approx 3.16e-7.
+    // (t-z_j)^2 < threshold means abs(t-z_j) < sqrt(threshold) approx 5.6e-4.
+    const double aaa_julia_eval_tol = 1e-13; // Base tolerance from Julia example
+    const double closeness_threshold_sq = std::sqrt(aaa_julia_eval_tol);
+
+    for (size_t j = 0; j < z.size(); ++j) {
+        U diff_u = t - z[j];
+        U diff_u_sq = diff_u * diff_u;
+        // Compare the value part of (t - z[j])^2.
+        // static_cast<double>(fvar_type) extracts the value for boost::math::fvar.
+        if (static_cast<double>(diff_u_sq) < closeness_threshold_sq) {
+            break_index = static_cast<int>(j);
+            break; // Found the first support point t is close to.
+        }
+    }
 
     U N_sum(0.0), D_sum(0.0);
 
-    // Handle evaluation *at* a support point
-    for (size_t j = 0; j < z.size(); ++j) {
-        // Use unqualified abs for Argument Dependent Lookup (ADL)
-        // Finds std::abs for double, boost::math::abs for fvar, etc.
-        if (abs(t - z[j]) < std::numeric_limits<double>::epsilon() * 10.0) { return U(f[j]); }
+    if (break_index != -1) {
+        // t is close to z[break_index]. Use the reformulated expression.
+        // m = t - z[break_index]
+        U m = t - z[break_index];
+
+        U N_sum_prime(0.0), D_sum_prime(0.0);
+        for (size_t j = 0; j < z.size(); ++j) {
+            if (static_cast<int>(j) == break_index) { continue; }
+
+            U term_val = t - z[j];
+            // Check for division by zero for points OTHER than z[break_index]
+            // This guards against t being pathologically close to multiple support points.
+            if (std::abs(static_cast<double>(term_val)) < std::numeric_limits<double>::epsilon() * 10.0) {
+                throw std::runtime_error(
+                  "AAA evaluation: t is simultaneously too close to multiple support points (z[" + std::to_string(j) +
+                  "] and z[" + std::to_string(break_index) + "]). t = " + std::to_string(static_cast<double>(t)));
+            }
+
+            U term = w[j] / term_val;
+            N_sum_prime += term * static_cast<U>(f[j]); // f[j] is type T, ensure it becomes U
+            D_sum_prime += term;
+        }
+
+        // N_sum = w[break_index] * f[break_index] + m * N_sum_prime
+        // D_sum = w[break_index] + m * D_sum_prime
+        // Ensure terms are of type U for AD compatibility.
+        // w[break_index] is double, f[break_index] is T.
+        N_sum = static_cast<U>(w[break_index]) * static_cast<U>(f[break_index]) + m * N_sum_prime;
+        D_sum = static_cast<U>(w[break_index]) + m * D_sum_prime;
+
+    } else {
+        // Standard formula: t is not "close" to any support point.
+        // The old early exit for t == z[j] is removed; this branch handles t away from z_j.
+        for (size_t j = 0; j < z.size(); ++j) {
+            U term_val = t - z[j];
+            // Since break_index == -1, (static_cast<double>(term_val))^2 >= closeness_threshold_sq.
+            // So term_val should not be excessively small unless closeness_threshold_sq is very loose.
+            // The main protection is the D_sum check below.
+            // A direct check here could be added if issues arise with specific U types.
+            // e.g. if (std::abs(static_cast<double>(term_val)) < std::numeric_limits<double>::min()) { ... }
+
+            U term = w[j] / term_val;
+            N_sum += term * static_cast<U>(f[j]); // f[j] is type T
+            D_sum += term;
+        }
     }
 
-    for (size_t j = 0; j < z.size(); ++j) {
-        U term = w[j] / (t - z[j]);
-        N_sum += term * f[j]; // Accumulate Numerator sum
-        D_sum += term;        // Accumulate Denominator sum
-    }
-
-    if (abs(D_sum) < std::numeric_limits<double>::epsilon() * 10.0) {
-        // Handle division by zero or near-zero denominator
-        // This might indicate evaluating near a pole not exactly at a support point.
-        // Throwing an error is safer than returning NaN/Inf silently.
-        // Note: Need a robust way to handle this with fvar type as well.
-        // For now, rely on potential exceptions from fvar division or check magnitude.
-        throw std::runtime_error("AAA evaluation failed: Denominator near zero at t = " +
-                                 std::to_string(static_cast<double>(t))); // Cast T to double for error msg
+    // Check for overall denominator D_sum being near zero (pole of the rational function).
+    // This check applies to both branches above.
+    // Using std::abs on the value part of D_sum.
+    if (std::abs(static_cast<double>(D_sum)) < std::numeric_limits<double>::epsilon() * 100.0) {
+        throw std::runtime_error("AAA evaluation failed: Denominator D_sum near zero at t = " +
+                                 std::to_string(static_cast<double>(t)));
     }
 
     U result = N_sum / D_sum;
@@ -304,6 +354,8 @@ AAApproximator<T>::evaluate_templated(U t) const {
     // For now, assume fvar operations might throw or propagate NaNs.
     // double result_val = boost::math::differentiation::derivative<0>(result); // If T is fvar
     // if (std::isnan(result_val) || std::isinf(result_val)) { ... }
+    // The static_cast<double>(result) would give the value part. std::isnan/isinf can be used on that.
+    // However, AD types should propagate these correctly. The main concern is poles.
 
     return result;
 }

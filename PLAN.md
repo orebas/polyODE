@@ -113,6 +113,39 @@
             *   [ ] Edge cases: only ICs to estimate.
             *   [ ] Systems requiring specific higher observable derivative orders to become square.
             *   [ ] Test cases with zero-valued true parameters or ICs.
+            *   [ ] **Ported Tests from Julia Codebase:**
+                *   **From `test_models.jl` (Focus: Unidentifiability, specific structures):**
+                    *   [x] `trivial_unident` (Initial C++ definition and test case added, passing)
+                    *   [~] `sum_test` (C++ definition and test case added, PHC yields complex solutions - Investigating AA/Solver)
+                    *   [ ] `global_unident_test`
+                    *   [ ] `substr_test`
+                *   **From `simple_models.jl` (Focus: Basic structures, observable complexity):**
+                    *   [ ] `simple`
+                    *   [ ] `onesp_cubed`
+                    *   [ ] `threesp_cubed`
+                    *   [ ] `simple_linear_combination`
+                *   **From `classical_systems.jl` (Focus: Well-known systems):**
+                    *   [ ] `harmonic`
+                    *   [ ] `lotka_volterra` (Enhance existing C++ test or create new comprehensive one)
+                    *   [ ] `vanderpol`
+                    *   [ ] `brusselator`
+                *   **From `biological_systems.jl` (Focus: More complex, real-world inspired):**
+                    *   [ ] `seir`
+                    *   [ ] `treatment`
+                    *   [ ] `biohydrogenation` (Note: uses rational functions in ODEs)
+                    *   [ ] `repressilator` (Note: uses rational functions)
+                    *   [ ] `hiv` (and `hiv_old_wrong` variant)
+                *   **From `advanced_systems.jl` (Focus: Larger, more intricate systems):**
+                    *   [ ] `daisy_ex3`
+                    *   [ ] `daisy_mamil3`
+                    *   [ ] `daisy_mamil4`
+                    *   [ ] `fitzhugh_nagumo` (already listed under classical, ensure full coverage)
+                    *   [ ] `lv_periodic` (variant of Lotka-Volterra)
+                    *   [ ] `slowfast`
+                    *   [ ] `sirsforced`
+                    *   [ ] `allee_competition`
+                    *   [ ] `two_compartment_pk`
+                    *   [ ] `crauste` (and `crauste_corrected`, `crauste_revised` variants)
         *   For each new test, verify:
             *   Correct identifiability results (`analysis_results.identifiable_parameters`, `analysis_results.square_system_derivative_orders`).
             *   Correct symbolic forms from `compute_required_symbolic_derivatives`.
@@ -122,7 +155,7 @@
     *   [ ] (Deferred) Testing with noisy data (may require alternative approximators like Gaussian Processes or Kalman Filters).
 
 *   **Phase 5: Advanced Solvers & Productionizing**
-    *   [ ] (Future) Implement interfaces for other polynomial solvers (e.g., `msolve`).
+    *   [~] (Future) Implement interfaces for other polynomial solvers (e.g., `msolve`, Ceres-based direct algebraic solver - CURRENTLY CONSIDERING FOR `SumTestSystem`)
     *   [ ] Refine error handling, logging, API.
     *   [ ] (Future) Consider parallelization for `run_estimation_over_time_points` or batch processing of solutions.
 
@@ -135,10 +168,9 @@
 *   [x] Choice of \\( t_{eval} \\): Impact on system conditioning / number of solutions; handled by `run_estimation_over_time_points`.
 *   [ ] Scalability: Performance with larger systems (number of states, parameters, derivative orders).
 *   [ ] Handling Noisy Data: Deferred.
+*   Linker errors for `AAApproximator` (Resolved by moving explicit template instantiation).
+*   `SumTestSystem` producing only complex solutions with PHC, despite good AAApproximator derivatives and a square system. Investigating solver alternatives or numerical stability for large systems.
 
 ---
 **Previous Status Notes (Resolved/Outdated):**
-*   Issues with `square_system_derivative_orders` being empty (Resolved by ensuring `determine_square_system_orders` is called and its result assigned).
-*   Symbolic derivatives being fully substituted (Resolved, now using less-substituted forms).
-*   Linker errors for `AAApproximator` (Resolved by moving explicit template instantiation).
---- 
+*   Issues with `square_system_derivative_orders`
