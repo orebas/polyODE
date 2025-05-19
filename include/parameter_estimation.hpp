@@ -4,6 +4,7 @@
 #include "polynomial.hpp"
 #include "polynomial_ode_system.hpp"
 // #include "test_utils.hpp" // Include for solve_ode_fixed_step_local etc.
+#include "experimental_data.hpp"   // Include the moved definition
 #include "observable.hpp"          // Include Observable definition
 #include "observed_ode_system.hpp" // Include ObservedOdeSystem definition
 #include "ode_solver_utils.hpp"    // Include for solve_ode_fixed_step_local etc.
@@ -22,17 +23,8 @@ namespace poly_ode {
 namespace odeint = boost::numeric::odeint;
 
 // Simple struct to hold experimental data
-struct ExperimentalData {
-    std::vector<double> times; ///< Time points of measurements.
-
-    // Map from Observable to its time series measurements.
-    // measurements[Observable("X_obs")][i] is the measurement of "X_obs" at times[i].
-    std::map<Observable, std::vector<double>> measurements;
-
-    // Potential validation:
-    // - Check if all vectors in measurements map have the same size as times.
-    // - Check if required Observables (based on an ObservedOdeSystem) are present.
-};
+// MOVED to experimental_data.hpp
+// struct ExperimentalData { ... };
 
 // Templated ODE System function wrapper for simple systems
 // NOTE: This currently uses a *separate* simple struct for the system.

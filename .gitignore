@@ -1,6 +1,7 @@
 # Build directories
 build/
 build2/
+build-debug/
 cmake-build*/
 inspo/
 repomix*

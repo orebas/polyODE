@@ -13,6 +13,7 @@
 namespace { // Anonymous namespace for helpers
 
 // Helper for factorial (n!) - using double for larger values
+// Note: Returns double, suitable for scaling derivatives, but overflows after 170!
 double
 factorial(int n) {
     if (n < 0) { throw std::domain_error("Factorial not defined for negative numbers"); }
@@ -26,6 +27,7 @@ factorial(int n) {
 }
 
 // Helper for binomial coefficient C(n, k) = n! / (k! * (n-k)!)
+// Uses iterative calculation to avoid large intermediate factorials.
 double
 binomialCoeff(int n, int k) {
     if (k < 0 || k > n) { return 0.0; }
@@ -46,12 +48,6 @@ binomialCoeff(int n, int k) {
 } // namespace
 
 // Template implementations must be defined before instantiation
-
-// Explicit instantiation for double
-template class AAApproximator<double>;
-
-// Other specific types that might be needed
-// template class AAApproximator<std::complex<double>>;
 
 template<typename T>
 AAApproximator<T>::AAApproximator(double tol, size_t mmax, unsigned int max_order)
@@ -79,6 +75,7 @@ AAApproximator<T>::fit(const std::vector<double> &times, const std::vector<T> &v
     this->fitted_ = true; // Mark as fitted
 }
 
+// Evaluate the approximant at time t.
 template<typename T>
 T
 AAApproximator<T>::evaluate(double t) const {
@@ -99,6 +96,7 @@ AAApproximator<T>::evaluate(double t) const {
     return result;
 }
 
+// Evaluate the derivative using Boost.Autodiff.
 template<typename T>
 T
 AAApproximator<T>::derivative(double t, int order) const {
@@ -139,6 +137,7 @@ AAApproximator<T>::derivative(double t, int order) const {
     }
 }
 
+// Evaluate the derivative using the (buggy) Schneider-Werner recurrence.
 template<typename T>
 T
 AAApproximator<T>::derivative_schneider_werner_buggy(double t, int order) const {
@@ -258,9 +257,9 @@ AAApproximator<T>::derivative_schneider_werner_buggy(double t, int order) const 
     return final_result;
 }
 
-// Template definition for evaluate_templated (needs to be in header or implemented here)
-// For now, let's put the implementation directly in the cpp file below derivative_autodiff
-
+// Core evaluation logic: Computes N(t)/D(t) where
+// N(t) = sum_j [ w_j * f_j / (t - z_j) ]
+// D(t) = sum_j [ w_j / (t - z_j) ]
 template<typename T>
 template<typename U>
 U
@@ -277,14 +276,15 @@ AAApproximator<T>::evaluate_templated(U t) const {
 
     // Handle evaluation *at* a support point
     for (size_t j = 0; j < z.size(); ++j) {
-        // Use unqualified abs for potential ADL with boost::math::abs
+        // Use unqualified abs for Argument Dependent Lookup (ADL)
+        // Finds std::abs for double, boost::math::abs for fvar, etc.
         if (abs(t - z[j]) < std::numeric_limits<double>::epsilon() * 10.0) { return U(f[j]); }
     }
 
     for (size_t j = 0; j < z.size(); ++j) {
         U term = w[j] / (t - z[j]);
-        N_sum += term * f[j];
-        D_sum += term;
+        N_sum += term * f[j]; // Accumulate Numerator sum
+        D_sum += term;        // Accumulate Denominator sum
     }
 
     if (abs(D_sum) < std::numeric_limits<double>::epsilon() * 10.0) {
@@ -308,16 +308,26 @@ AAApproximator<T>::evaluate_templated(U t) const {
     return result;
 }
 
-// Explicit instantiation for double to link evaluate_templated()
+// Explicit instantiation for double of the nested evaluate_templated<double>
 // Note that this must come after the template definition
 template double
 AAApproximator<double>::evaluate_templated<double>(double t) const;
 
 // No explicit instantiation for fvar types needed - they're used internally
 
+// Retrieve the support points (poles z_j) used by the approximant.
 template<typename T>
 const std::vector<double> &
 AAApproximator<T>::get_support_points() const {
     if (!this->fitted_) { throw std::runtime_error("AAApproximator::get_support_points called before fit."); }
     return aaa_.support_points();
 }
+
+// Explicit instantiation for double
+// Ensures the compiler generates code for AAApproximator<double>.
+// This MUST come AFTER all member function definitions.
+template class AAApproximator<double>;
+
+// Other specific types that might be needed if you use them with AAApproximator
+// template class AAApproximator<std::complex<double>>;
+// template class AAApproximator<ceres::Jet<double, SomeOrder>>;

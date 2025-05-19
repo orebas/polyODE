@@ -1,6 +1,7 @@
 #include "polynomial.hpp"
 #include "polynomial_ode_system.hpp"
 #include "test_utils.hpp" // For common variables
+#include <boost/numeric/odeint.hpp>
 #include <gtest/gtest.h>
 #include <map>
 #include <stdexcept>
@@ -74,7 +75,7 @@ TEST_F(OdeSystemTest, EvaluateOperatorMissingParameter) {
     RationalFunctionOdeSystem<double> system_missing_param(eqs, sv, params);
 
     std::vector<double> const state_z = { 5.0 }; // z=5
-    std::vector<double> dxdt_z;            // Output
+    std::vector<double> dxdt_z;                  // Output
     double const t = 0.0;
 
     // The operator() internally calls evaluate, which needs k. Should throw.
@@ -143,4 +144,48 @@ TEST_F(OdeSystemTest, EvaluateOperatorWithParameterChange) {
     // dy/dt = -x + k*y = -2.0 + 0.5 * 3.0 = -2.0 + 1.5 = -0.5
     EXPECT_DOUBLE_EQ(dxdt2[0], 3.0);
     EXPECT_DOUBLE_EQ(dxdt2[1], -0.5);
+}
+
+TEST_F(OdeSystemTest, BackwardIntegrationExponential) {
+    // Test backward integration: dx/dt = -k*x
+    // Analytical solution: x(t) = x(0) * exp(-k*t)
+    //                  => x(0) = x(t) * exp(k*t)
+    const Variable exp_x("x");
+    const Variable exp_k("k", 0, true);
+    RationalFunction<double> exp_eq = -exp_k * exp_x;
+    std::vector<Variable> exp_sv = { exp_x };
+    std::map<Variable, double> exp_params = { { exp_k, 0.5 } }; // k = 0.5
+    RationalFunctionOdeSystem<double> exp_system({ exp_eq }, exp_sv, exp_params);
+
+    double k_val = 0.5;
+    double t_final = 2.0;
+    double x_final = 10.0 * std::exp(-k_val * t_final); // Let x(0)=10, calculate x(t_final)
+
+    // Expected initial condition x(0)
+    double expected_x0 = 10.0;
+
+    // Initial state vector for backward integration (state at t_final)
+    std::vector<double> state_at_t_final = { x_final };
+
+    // Time points for backward integration
+    double t_start = t_final;
+    double t_end = 0.0;
+    double dt = -0.01; // Use a negative step size for backward integration
+
+    // Integrate backward using integrate_const
+    // The state vector state_at_t_final will be updated in place
+    try {
+        odeint::integrate_const(odeint::runge_kutta4<std::vector<double>>(), // Use a simple RK4 stepper
+                                exp_system,
+                                state_at_t_final,
+                                t_start,
+                                t_end, // Integrate until t reaches t_end
+                                dt     // Use the negative step size directly
+        );
+    } catch (const std::exception &e) { FAIL() << "Exception during backward integration: " << e.what(); }
+
+    // Check the resulting state at t=0
+    ASSERT_EQ(state_at_t_final.size(), 1);
+    EXPECT_NEAR(state_at_t_final[0], expected_x0, 1e-5) // Use appropriate tolerance
+      << "State at t=0 after backward integration differs from expected value.";
 }

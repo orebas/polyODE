@@ -78,9 +78,12 @@ find_package(Ceres REQUIRED) # vcpkg handles finding this via toolchain
 add_library(polyode_lib STATIC
     src/polynomial.cpp
     src/parameter_estimation.cpp
+    src/parameter_estimator.cpp
     src/identifiability_analyzer.cpp
     src/approximation/observable_approximator.cpp # Base class (might be header-only, but good practice)
     src/approximation/aa_approximator.cpp       # AAA implementation
+    src/phc_solver.cpp                          # PHC solver implementation
+    src/example_systems.cpp                     # Added to compile and link with the library
 )
 # Specify that the library includes headers from the include/ directory.
 # PUBLIC makes these includes available to targets linking against polyode_lib.
@@ -151,6 +154,15 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(complex_system_identifiability PRIVATE m)
 endif()
 
+# Add copy of PHC script to build directory (before defining the tests)
+# This ensures the script is available at runtime from the build dir
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/scripts/phc_dict_to_json.py
+               ${CMAKE_CURRENT_BINARY_DIR}/scripts/phc_dict_to_json.py
+               COPYONLY)
+
+# Make sure the script is executable
+file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/scripts/phc_dict_to_json.py
+     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
 # --- Testing Framework (Google Test) ---
 # Remove FetchContent block for googletest
@@ -182,37 +194,41 @@ include(GoogleTest)
 # Helper function to simplify adding test executables and discovering tests
 function(add_polyode_test test_name)
     add_executable(${test_name} tests/${test_name}.cpp)
-    # Link the test executable against our library and the gtest_main library
-    # Use the imported target GTest::gtest_main provided by find_package(GTest)
     target_link_libraries(${test_name} PRIVATE polyode_lib GTest::gtest_main)
-    # Link math library if needed (based on original CMakeLists)
     if(UNIX AND NOT APPLE)
         target_link_libraries(${test_name} PRIVATE m)
     endif()
-    # Use gtest_add_tests instead to explicitly parse source files
-    # Correct order: AUTO comes before SOURCES
-    gtest_add_tests(TARGET ${test_name} AUTO SOURCES tests/${test_name}.cpp)
+    # Use modern gtest_discover_tests instead of gtest_add_tests
+    gtest_discover_tests(${test_name})
 endfunction()
 
 # Add each test using the helper function
 add_polyode_test(analytic_test)
 add_polyode_test(holling_odesystem_test)
-# add_polyode_test(rational_ode_test) # Removed as redundant
 add_polyode_test(monomial_test)
 add_polyode_test(polynomial_test)
 add_polyode_test(rational_function_test)
 add_polyode_test(variable_test)
 add_polyode_test(ode_system_test)
 add_polyode_test(exponential_decay_test)
-add_polyode_test(parameter_estimation_test)
-target_link_libraries(parameter_estimation_test PRIVATE Ceres::ceres)
-
-# Add the new identifiability analyzer test
+# add_polyode_test(parameter_estimation_test) # Removed old test
 add_polyode_test(identifiability_analyzer_test)
-
-# Add the new approximation test
 add_polyode_test(approximation_test)
-# target_link_libraries(approximation_test PRIVATE Ceres::ceres) # No longer needed
+
+# Add the new parameter estimator test using the helper
+add_polyode_test(parameter_estimator_test)
+add_polyode_test(parameter_estimator_scenarios_test)
+# Link specific libraries needed by this test (e.g., for PHCSolver)
+# Assuming vcpkg provides nlohmann_json::nlohmann_json target
+find_package(nlohmann_json REQUIRED)
+# Link PHCSolver dependencies if needed (nlohmann_json)
+# Check if polyode_lib already links nlohmann_json PUBLICLY.
+# If not, link it directly to the test target.
+# Let's assume it's not linked publicly by the lib for now.
+target_link_libraries(parameter_estimator_test PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(parameter_estimator_scenarios_test PRIVATE nlohmann_json::nlohmann_json)
+# Link Ceres if ParameterEstimator directly uses Ceres types (it doesn't anymore)
+# target_link_libraries(parameter_estimator_test PRIVATE Ceres::ceres)
 
 # --- Compiler Warnings ---
 # Apply common warning flags to the library target
@@ -224,6 +240,44 @@ else()
     target_compile_options(polyode_lib INTERFACE -Wall -Wextra -pedantic) # GCC/Clang
 endif()
 
+# --- Doxygen Documentation ---
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+    # Set Doxygen variables for the template
+    set(DOXYGEN_PROJECT_NAME ${PROJECT_NAME})
+    # Use CMAKE_PROJECT_VERSION if set, otherwise fallback
+    if(NOT DEFINED CMAKE_PROJECT_VERSION)
+        set(PROJECT_VERSION "0.1.0") # Default version if not set
+    else()
+        set(PROJECT_VERSION ${CMAKE_PROJECT_VERSION})
+    endif()
+
+    # Configure the Doxyfile using the template
+    set(DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
+    set(DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+    configure_file(${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
+    message(STATUS "Doxygen build enabled. Configured Doxyfile: ${DOXYFILE_OUT}")
+
+    # Add a target to generate documentation
+    # Use the new doxygen_add_docs function (CMake 3.9+)
+    # Note: This function might implicitly depend on the input source files,
+    # but explicitly adding dependencies can be safer if needed.
+    doxygen_add_docs(
+        doc # Target name (e.g., build with 'make doc')
+        ${DOXYFILE_OUT}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} # Doxygen runs from build dir
+        COMMENT "Generating API documentation with Doxygen to docs/html"
+    )
+    # If you want to ensure 'doc' depends on your library sources (optional):
+    # get_target_property(polyode_lib_sources polyode_lib SOURCES)
+    # add_dependencies(doc ${polyode_lib_sources})
+else()
+    message(WARNING "Doxygen not found. Documentation target 'doc' will not be available.")
+    # Define a dummy target if Doxygen is not found
+    add_custom_target(doc
+        COMMAND ${CMAKE_COMMAND} -E echo "Doxygen not found, skipping documentation generation."
+    )
+endif()
 
 # --- Installation (Optional - Example structure) ---
 # install(TARGETS polyode_lib DESTINATION lib)

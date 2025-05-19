@@ -7,6 +7,7 @@
 #include <iostream>    // For potential warnings/errors
 #include <limits>      // For numeric_limits
 #include <numeric>     // For std::iota
+#include <queue>       // <-- ADDED FOR STD::QUEUE
 #include <random>      // For sampling test points
 #include <stdexcept>
 #include <type_traits> // For is_same_v
@@ -31,6 +32,67 @@
 
 namespace poly_ode {
 
+// --- Implementation of Templated Helper Functions (Moved Earlier) ---
+
+template<typename T>
+T
+evaluate_rf_safely_tmpl(const RationalFunction<double> &rf,
+                        const std::map<Variable, T> &values,
+                        const std::string &context = "") { // Add context for better warnings
+    try {
+        return rf.template evaluate<T>(values);
+    } catch (const std::exception &e) {
+        std::cerr << "Warning: Evaluation failed for RF: " << rf
+                  << (context.empty() ? "" : " (context: " + context + ")") << " with error: " << e.what()
+                  << ". Returning NaN." << std::endl;
+        if constexpr (std::is_same_v<T, double>) {
+            return std::numeric_limits<double>::quiet_NaN();
+        } else {
+            // Assuming T can be constructed from double for NaN
+            return T(std::numeric_limits<double>::quiet_NaN());
+        }
+    }
+}
+
+// Helper function to get unique variables from a Polynomial
+inline std::set<Variable>
+get_variables_from_poly(const Polynomial<double> &poly) {
+    std::set<Variable> vars;
+    for (const auto &mono : poly.monomials) {
+        for (const auto &pair : mono.vars) { vars.insert(pair.first); }
+    }
+    return vars;
+}
+
+// Helper function to get unique variables from a RationalFunction
+inline std::set<Variable>
+get_variables_from_rf(const RationalFunction<double> &rf) {
+    std::set<Variable> vars = get_variables_from_poly(rf.numerator);
+    std::set<Variable> denom_vars = get_variables_from_poly(rf.denominator);
+    vars.insert(denom_vars.begin(), denom_vars.end());
+    return vars;
+}
+
+// Helper function to get unique variables from a collection of RationalFunctions
+inline std::set<Variable>
+get_variables_from_rf_collection(const std::vector<RationalFunction<double>> &rfs) {
+    std::set<Variable> all_vars;
+    for (const auto &rf : rfs) {
+        std::set<Variable> current_vars = get_variables_from_rf(rf);
+        all_vars.insert(current_vars.begin(), current_vars.end());
+    }
+    return all_vars;
+}
+
+inline std::set<Variable>
+get_variables_from_rf_map(const std::map<Observable, RationalFunction<double>> &rf_map) {
+    std::set<Variable> all_vars;
+    for (const auto &pair : rf_map) {
+        std::set<Variable> current_vars = get_variables_from_rf(pair.second);
+        all_vars.insert(current_vars.begin(), current_vars.end());
+    }
+    return all_vars;
+}
 
 // --- Helper function to select rows based on derivative orders ---
 // Takes the TRANSPOSED Jacobian (num_outputs * num_points) x num_params
@@ -134,6 +196,7 @@ class IdentifiabilityAnalyzer {
         std::vector<Variable> identifiable_parameters;
         std::map<Variable, double> non_identifiable_parameters; // Fixed values
         std::map<Observable, int> required_derivative_orders;
+        std::map<Observable, int> square_system_derivative_orders; // Orders needed for a square algebraic system
         // TODO: Potentially add status flags (e.g., success, ambiguity)
     };
 
@@ -481,6 +544,26 @@ class IdentifiabilityAnalyzer {
 
         std::cout << "\nAnalysis complete." << std::endl;
 
+        std::cout << "\n--- Preparing to compute square system orders for algebraic system --- " << std::endl;
+        std::cout << "  Current identifiable parameters (" << current_params_identifiable.size() << "): ";
+        for (const auto &param : current_params_identifiable) { std::cout << param << " "; }
+        std::cout << std::endl;
+
+        std::cout << "  Minimal derivative orders from identifiability analysis:" << std::endl;
+        for (const auto &pair : results.required_derivative_orders) {
+            std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
+        }
+
+        std::cout << "  About to call determine_square_system_orders..." << std::endl;
+        results.square_system_derivative_orders =
+          determine_square_system_orders(current_params_identifiable, results.required_derivative_orders);
+
+        std::cout << "  Results from determine_square_system_orders:" << std::endl;
+        for (const auto &pair : results.square_system_derivative_orders) {
+            std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
+        }
+        std::cout << "  Square system orders computation complete." << std::endl;
+
         return results;
     }
 
@@ -592,36 +675,99 @@ class IdentifiabilityAnalyzer {
 
     // --- Templated version of compute_Y_numerical for AD ---
     template<typename T>
-    std::vector<T> compute_Y_templated(const std::map<Variable, T> &param_values,
-                                       const std::map<Variable, double> &fixed_param_values,
-                                       const std::map<Variable, double> &fixed_ic_values,
-                                       int derivative_order) const;
+    std::vector<T> compute_Y_templated(
+      const std::map<Variable, T> &param_values, // Includes ICs being analyzed (type T)
+      const std::map<Variable, double> &fixed_param_values,
+      const std::map<Variable, double> &fixed_ic_values,
+      int derivative_order) const {
+        // Map to store all numerically evaluated derivatives { Var (with deriv_level) -> value (type T) }
+        std::map<Variable, T> evaluated_values = param_values; // Start with params/ICs being analyzed (type T)
 
-    // TODO: Add function signature for iterative SVD/Nullspace analysis (Step 3)
-    // TODO: Add function signature for determining minimal derivative orders (Step 4)
-};
+        // Add fixed params (convert double to T)
+        for (const auto &pair : fixed_param_values) { evaluated_values[pair.first] = T(pair.second); }
 
-// --- Implementation of Templated Helper Functions (Moved to Header) ---
+        // Add fixed ICs (convert double to T, use as key)
+        for (const auto &pair : fixed_ic_values) { evaluated_values[pair.first] = T(pair.second); }
 
-template<typename T>
-T
-evaluate_rf_safely_tmpl(const RationalFunction<double> &rf,
-                        const std::map<Variable, T> &values,
-                        const std::string &context = "") { // Add context for better warnings
-    try {
-        return rf.template evaluate<T>(values);
-    } catch (const std::exception &e) {
-        std::cerr << "Warning: Evaluation failed for RF: " << rf
-                  << (context.empty() ? "" : " (context: " + context + ")") << " with error: " << e.what()
-                  << ". Returning NaN." << std::endl;
-        if constexpr (std::is_same_v<T, double>) {
-            return std::numeric_limits<double>::quiet_NaN();
-        } else {
-            return T(std::numeric_limits<double>::quiet_NaN());
+        // --- Step 1: Compute numerical values for states and their derivatives (as type T) ---
+
+        // Add initial conditions (order 0 states) - ensure all are present
+        for (const auto &state_var : system_ref_.state_variables) {
+            if (evaluated_values.find(state_var) == evaluated_values.end()) {
+                // This should have been caught by earlier logic or constructor validation
+                throw std::runtime_error("Internal Error: Missing IC value during templated evaluation for: " +
+                                         state_var.name);
+            }
         }
-    }
-}
 
+        // Compute higher-order state derivative numerical values (as type T)
+        // d^n(x_i)/dt^n = evaluate<T>( d^(n-1)(f_i)/dt^(n-1) )
+        // Note: Assumes compute_symbolic_derivatives was called and rhs_derivatives_ is populated.
+        for (int n = 1; n <= max_derivative_order_; ++n) {
+            if (rhs_derivatives_.count(n - 1) == 0) {
+                std::cerr << "Warning: Missing RHS derivatives needed for state derivative order " << n << std::endl;
+                continue;
+            }
+            const auto &rhs_deriv_rfs_prev = rhs_derivatives_.at(n - 1);
+            if (rhs_deriv_rfs_prev.size() != system_ref_.num_states()) {
+                throw std::logic_error("Internal error: Mismatch in number of RHS derivatives.");
+            }
+
+            for (size_t i = 0; i < system_ref_.num_states(); ++i) {
+                Variable state_var_n = system_ref_.state_variables[i];
+                state_var_n.deriv_level = n;
+                state_var_n.is_constant = false;
+
+                // Evaluate using the map containing values of type T
+                evaluated_values[state_var_n] =
+                  evaluate_rf_safely_tmpl(rhs_deriv_rfs_prev[i],
+                                          evaluated_values,
+                                          "state_deriv n=" + std::to_string(n) + " i=" + std::to_string(i));
+            }
+        }
+
+        // --- Step 2: Evaluate required observable derivatives (as type T) using the complete map ---
+        std::vector<T> Y_T;
+        Y_T.reserve(system_ref_.num_observables() * (derivative_order + 1));
+
+        std::vector<Observable> ordered_obs = system_ref_.get_observables();
+
+        for (int n = 0; n <= derivative_order; ++n) {
+            if (observable_derivatives_.count(n) == 0) {
+                std::cerr << "Warning: Missing observable derivatives for order " << n << std::endl;
+                for (size_t k = 0; k < ordered_obs.size(); ++k) {
+                    Y_T.push_back(T(std::numeric_limits<double>::quiet_NaN()));
+                }
+                continue;
+            }
+            const auto &obs_deriv_rfs_at_n = observable_derivatives_.at(n);
+
+            for (const auto &obs : ordered_obs) {
+                auto rf_it = obs_deriv_rfs_at_n.find(obs);
+                if (rf_it != obs_deriv_rfs_at_n.end()) {
+                    Y_T.push_back(evaluate_rf_safely_tmpl(
+                      rf_it->second, evaluated_values, "obs_deriv n=" + std::to_string(n) + " obs=" + obs.name));
+                } else {
+                    std::cerr << "Warning: Missing symbolic derivative for observable '" << obs.name << "' at order "
+                              << n << std::endl;
+                    Y_T.push_back(T(std::numeric_limits<double>::quiet_NaN()));
+                }
+            }
+        }
+
+        return Y_T;
+    }
+
+    // --- Helper Methods for Analysis --- //
+    std::map<Observable, int> determine_minimal_orders(const Eigen::MatrixXd &final_jacobian_T,
+                                                       int target_rank,
+                                                       double rank_tolerance,
+                                                       int num_test_points) const;
+
+    std::map<Observable, int> determine_square_system_orders(const std::vector<Variable> &identifiable_params,
+                                                             const std::map<Observable, int> &minimal_orders) const;
+
+}; // <-- ENSURE THIS IS PRESENT TO CLOSE IdentifiabilityAnalyzer class
 
 } // namespace poly_ode
 

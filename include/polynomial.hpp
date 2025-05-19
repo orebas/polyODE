@@ -370,6 +370,111 @@ struct Polynomial {
         }
         return total;
     }
+
+    /**
+     * @brief Substitutes variables in the polynomial with given rational function expressions.
+     *
+     * @param replacements A map where keys are variables to be replaced and values are their RationalFunction
+     * replacements.
+     * @return RationalFunction<Coeff> The resulting rational function after substitution.
+     *         Note: Substitution might turn a polynomial into a rational function.
+     */
+    [[nodiscard]] RationalFunction<Coeff> substitute(
+      const std::map<Variable, RationalFunction<Coeff>> &replacements) const {
+        RationalFunction<Coeff> result_rf(Coeff(0)); // Start with zero RationalFunction
+
+        for (const auto &m : monomials) {
+            RationalFunction<Coeff> term_rf(m.coeff); // Term starts with coefficient
+            bool substituted_vars = false;
+
+            for (const auto &var_pair : m.vars) {
+                const Variable &v = var_pair.first;
+                int exponent = var_pair.second;
+
+                auto it = replacements.find(v);
+                if (it != replacements.end()) {
+                    // Substitute this variable v with the replacement RF
+                    const RationalFunction<Coeff> &replacement_rf = it->second;
+                    // Need RF^exponent - implement pow for RationalFunction?
+                    // For now, implement manually for positive integer exponents
+                    if (exponent < 0)
+                        throw std::runtime_error("Negative exponents not supported in RF substitution yet.");
+                    RationalFunction<Coeff> rf_pow(Coeff(1));
+                    for (int i = 0; i < exponent; ++i) { rf_pow = rf_pow * replacement_rf; }
+                    term_rf = term_rf * rf_pow; // Multiply the term by (replacement_rf)^exponent
+                    substituted_vars = true;
+                } else {
+                    // This variable was not replaced, keep it as (variable)^exponent
+                    Monomial<Coeff> var_mono(Coeff(1), v, exponent);
+                    term_rf = term_rf * RationalFunction<Coeff>(var_mono);
+                }
+            }
+            result_rf = result_rf + term_rf; // Add the processed term to the total
+        }
+        // Simplification is handled by RationalFunction operators
+        return result_rf;
+    }
+
+    /**
+     * @brief Substitutes variables in the polynomial with given constant values.
+     *
+     * @param replacements A map where keys are variables to be replaced and values are their constant Coeff
+     * replacements.
+     * @return Polynomial<Coeff> The resulting polynomial after substitution.
+     */
+    [[nodiscard]] Polynomial<Coeff> substitute(const std::map<Variable, Coeff> &replacements) const {
+        Polynomial<Coeff> result;
+        if (monomials.empty()) { return result; }
+
+        for (const auto &m : monomials) {
+            Monomial<Coeff> substituted_m;
+            substituted_m.coeff = m.coeff; // Start with original coefficient
+            substituted_m.vars = m.vars;   // Start with original variables
+
+            std::vector<Variable> vars_to_remove;
+            for (const auto &var_pair : m.vars) {
+                const Variable &v = var_pair.first;
+                int exponent = var_pair.second;
+
+                auto it = replacements.find(v);
+                if (it != replacements.end()) {
+                    // Variable found in replacements map
+                    Coeff replacement_value = it->second;
+                    Coeff power_val = Coeff(1); // Needs Coeff(1)
+                    // Compute replacement_value ^ exponent
+                    // Handle potential issues with std::pow for non-double Coeff
+                    // This might need specialization or constraints based on Coeff type
+                    if constexpr (std::is_floating_point_v<Coeff> || std::is_integral_v<Coeff>) {
+                        try {
+                            // Using std::pow requires Coeff to be implicitly convertible to double and back
+                            // This might not be ideal for all types (e.g., complex)
+                            power_val = static_cast<Coeff>(std::pow(static_cast<double>(replacement_value), exponent));
+                            // TODO: Consider a custom power function for Coeff if needed
+                        } catch (const std::exception &e) {
+                            throw std::runtime_error("Error calculating power in substitute: " + std::string(e.what()));
+                        }
+                    } else {
+                        // Fallback for non-standard numeric types: simple loop
+                        if (exponent < 0)
+                            throw std::runtime_error(
+                              "Negative exponents not supported in substitute for non-standard types.");
+                        for (int i = 0; i < exponent; ++i) { power_val *= replacement_value; }
+                    }
+
+                    substituted_m.coeff *= power_val; // Incorporate value into coefficient
+                    vars_to_remove.push_back(v);      // Mark variable for removal from map
+                }
+            }
+            // Remove substituted variables from the monomial's map
+            for (const auto &v_rem : vars_to_remove) { substituted_m.vars.erase(v_rem); }
+
+            // Add the potentially modified monomial to the result polynomial
+            result.monomials.push_back(substituted_m);
+        }
+
+        result.simplify(); // Simplify the result
+        return result;
+    }
 };
 
 //-----------------------------------------------------------------------------
@@ -899,6 +1004,40 @@ struct RationalFunction {
         return *this;
     }
     RationalFunction<Coeff> operator-() const { return RationalFunction<Coeff>(-numerator, denominator); }
+
+    /**
+     * @brief Substitutes variables in the rational function with given rational function expressions.
+     *
+     * @param replacements A map where keys are variables to be replaced and values are their RationalFunction
+     * replacements.
+     * @return RationalFunction<Coeff> The resulting rational function after substitution.
+     */
+    [[nodiscard]] RationalFunction<Coeff> substitute(
+      const std::map<Variable, RationalFunction<Coeff>> &replacements) const {
+        // Substitute into numerator and denominator using the Polynomial::substitute overload
+        // which returns a RationalFunction.
+        RationalFunction<Coeff> subst_num_rf = numerator.substitute(replacements);
+        RationalFunction<Coeff> subst_den_rf = denominator.substitute(replacements);
+
+        // The result is subst_num_rf / subst_den_rf
+        // Operator/ handles simplification and potential division by zero denominator.
+        return subst_num_rf / subst_den_rf;
+    }
+
+    /**
+     * @brief Substitutes variables in the rational function with given constant values.
+     *
+     * @param replacements A map where keys are variables to be replaced and values are their constant Coeff
+     * replacements.
+     * @return RationalFunction<Coeff> The resulting rational function after substitution.
+     */
+    [[nodiscard]] RationalFunction<Coeff> substitute(const std::map<Variable, Coeff> &replacements) const {
+        // Substitute into numerator and denominator separately
+        Polynomial<Coeff> new_num = numerator.substitute(replacements);
+        Polynomial<Coeff> new_den = denominator.substitute(replacements);
+        // The RationalFunction constructor handles normalization/simplification
+        return RationalFunction<Coeff>(new_num, new_den);
+    }
 };
 
 //-----------------------------------------------------------------------------

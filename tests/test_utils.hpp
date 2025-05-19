@@ -1,12 +1,19 @@
 #ifndef TEST_UTILS_HPP
 #define TEST_UTILS_HPP
 
+#include "experimental_data.hpp"   // Direct include for ExperimentalData
+#include "observable.hpp"          // For Observable class
+#include "observed_ode_system.hpp" // For ObservedOdeSystem
 #include "ode_solver_utils.hpp"
 #include "polynomial.hpp"
-#include <boost/numeric/odeint.hpp> // Needed for solver
-#include <cmath>                    // For std::abs in potential float compares
+#include "polynomial_ode_system.hpp" // For PolynomialOdeSystem
+#include <algorithm>                 // For std::min, std::find_if
+#include <boost/numeric/odeint.hpp>  // Needed for solver
+#include <cmath>                     // For std::abs in potential float compares
 #include <gtest/gtest.h>
-#include <map> // Include map for the operator<< below
+#include <limits> // For std::numeric_limits
+#include <map>    // Include map for the operator<< below
+#include <random> // For std::mt19937, std::normal_distribution
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -91,9 +98,9 @@ EXPECT_RF_EQ(const RationalFunction<Coeff> &rf1, const RationalFunction<Coeff> &
 }
 
 // Include necessary headers for the new helper function
-#include "parameter_estimation.hpp" // For ExperimentalData
-#include <algorithm>                // For std::min
-#include <random>
+// #include "parameter_estimation.hpp" // For ExperimentalData - now experimental_data.hpp is directly included above
+// #include <algorithm>                // For std::min - moved to top
+// #include <random>                   // moved to top
 
 // Global test variables (consider defining in a .cpp file if they grow numerous)
 // ... existing variables ...
@@ -205,5 +212,261 @@ generate_noisy_lv_data(double alpha_true,
 
     return data;
 }
+
+namespace poly_ode {
+namespace test_utils {
+
+class OdeSystemTestBuilder {
+  public:
+    OdeSystemTestBuilder() = default;
+
+    OdeSystemTestBuilder &add_state_variable(const std::string &name, double initial_value_for_data_gen = 0.0) {
+        Variable var(name, 0, false);
+        if (name_to_variable_map_.count(name) &&
+            name_to_variable_map_.at(name).deriv_level == 0) { // Check if base var exists
+            // Allow re-adding if it's for a different deriv_level or type, but not same base state.
+            throw std::runtime_error("State variable with name '" + name + "' already added as a base state.");
+        }
+        if (!name_to_variable_map_.count(name)) { // Only add to map if truly new name
+            name_to_variable_map_[name] = var;
+        }
+        system_state_variables_.push_back(var);
+        true_parameter_values_[var] = initial_value_for_data_gen;
+        return *this;
+    }
+
+    OdeSystemTestBuilder &add_parameter(const std::string &name, double true_value_for_data_gen = 0.0) {
+        Variable param(name, 0, true);
+        if (name_to_variable_map_.count(name)) {
+            throw std::runtime_error("Identifier with name '" + name + "' already added.");
+        }
+        system_parameters_.push_back(param);
+        name_to_variable_map_[name] = param;
+        true_parameter_values_[param] = true_value_for_data_gen;
+        return *this;
+    }
+
+    Variable get_variable(const std::string &name, int deriv_level = 0) const {
+        auto it = name_to_variable_map_.find(name);
+        if (it == name_to_variable_map_.end()) {
+            throw std::runtime_error("Base variable with name '" + name +
+                                     "' not found in builder. Add it first with add_state_variable or add_parameter.");
+        }
+        Variable base_var = it->second; // This should be the deriv_level 0, is_constant correctly set version
+        base_var.deriv_level = deriv_level;
+        // is_constant should be preserved from the original definition in the map
+        return base_var;
+    }
+
+    Observable get_observable(const std::string &name) const {
+        auto it = name_to_observable_map_.find(name);
+        if (it == name_to_observable_map_.end()) {
+            throw std::runtime_error("Observable with name '" + name + "' not found in builder.");
+        }
+        return it->second;
+    }
+
+    OdeSystemTestBuilder &add_equation_for_state(const std::string &state_name, const RationalFunction<double> &rhs) {
+        bool found = false;
+        for (const auto &sv : system_state_variables_) {
+            if (sv.name == state_name && sv.deriv_level == 0) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            throw std::runtime_error("State variable '" + state_name + "' not added before defining its equation.");
+        }
+        if (state_equations_map_.count(state_name)) {
+            throw std::runtime_error("Equation for state '" + state_name + "' already defined.");
+        }
+        state_equations_map_[state_name] = rhs;
+        return *this;
+    }
+
+    // Overload for Polynomial<double>
+    OdeSystemTestBuilder &add_equation_for_state(const std::string &state_name, const Polynomial<double> &rhs_poly) {
+        return add_equation_for_state(state_name, RationalFunction<double>(rhs_poly));
+    }
+
+    // Overload for Variable (e.g., dx/dt = x2)
+    OdeSystemTestBuilder &add_equation_for_state(const std::string &state_name, const Variable &rhs_var) {
+        return add_equation_for_state(state_name, RationalFunction<double>(Polynomial<double>(rhs_var)));
+    }
+
+    OdeSystemTestBuilder &add_observable(const std::string &obs_name, const RationalFunction<double> &definition) {
+        Observable obs(obs_name);
+        if (name_to_observable_map_.count(obs_name)) {
+            throw std::runtime_error("Observable with name '" + obs_name + "' already added.");
+        }
+        observable_definitions_[obs] = definition;
+        name_to_observable_map_[obs_name] = obs;
+        return *this;
+    }
+
+    // Overload for Polynomial<double>
+    OdeSystemTestBuilder &add_observable(const std::string &obs_name, const Polynomial<double> &definition_poly) {
+        return add_observable(obs_name, RationalFunction<double>(definition_poly));
+    }
+
+    // Overload for Variable (e.g., y = x)
+    OdeSystemTestBuilder &add_observable(const std::string &obs_name, const Variable &definition_var) {
+        return add_observable(obs_name, RationalFunction<double>(Polynomial<double>(definition_var)));
+    }
+
+    ObservedOdeSystem get_system() const {
+        std::vector<RationalFunction<double>> ordered_rhs = get_ordered_equations();
+        // poly_ode::PolynomialOdeSystem poly_ode_sys(system_state_variables_, ordered_rhs); // This line is incorrect
+        // and should be removed.
+
+        // Pass the components directly to the ObservedOdeSystem constructor
+        return ObservedOdeSystem(ordered_rhs,              // ode_equations
+                                 system_state_variables_,  // states
+                                 system_parameters_,       // model_params
+                                 observable_definitions_); // obs_defs
+    }
+
+    ExperimentalData generate_data(const std::vector<double> &time_points,
+                                   double noise_stddev = 0.0,
+                                   double integration_dt = 0.001) const {
+
+        if (time_points.empty()) { return ExperimentalData{}; }
+
+        ObservedOdeSystem current_system = get_system();
+
+        std::vector<double> initial_state_vec;
+        initial_state_vec.reserve(current_system.state_variables.size());
+        for (const auto &sv : current_system.state_variables) {
+            auto it = true_parameter_values_.find(sv);
+            if (it == true_parameter_values_.end()) {
+                throw std::runtime_error("Initial condition for state '" + sv.name + "' not provided in builder.");
+            }
+            initial_state_vec.push_back(it->second);
+        }
+
+        std::map<Variable, double> current_params_for_eval;
+        for (const auto &p_var : current_system.parameters) {
+            auto it = true_parameter_values_.find(p_var);
+            if (it == true_parameter_values_.end()) {
+                throw std::runtime_error("True value for parameter '" + p_var.name + "' not provided in builder.");
+            }
+            current_params_for_eval[p_var] = it->second;
+        }
+
+        struct SystemFunctorForBuilder {
+            const ObservedOdeSystem &sys_ref_;
+            const std::map<Variable, double> &params_ref_;
+
+            SystemFunctorForBuilder(const ObservedOdeSystem &system, const std::map<Variable, double> &params)
+              : sys_ref_(system)
+              , params_ref_(params) {}
+
+            void operator()(const std::vector<double> &current_state_vec, std::vector<double> &dxdt_vec, double /*t*/) {
+                std::map<Variable, double> eval_map = params_ref_;
+                for (size_t i = 0; i < sys_ref_.state_variables.size(); ++i) {
+                    eval_map[sys_ref_.state_variables[i]] = current_state_vec[i];
+                }
+
+                dxdt_vec.resize(sys_ref_.state_variables.size());
+                const auto &equations = sys_ref_.equations;
+                for (size_t i = 0; i < sys_ref_.state_variables.size(); ++i) {
+                    try {
+                        dxdt_vec[i] = equations[i].evaluate(eval_map);
+                    } catch (const std::exception &e) {
+                        std::cerr << "Evaluation error in SystemFunctorForBuilder for eq " << i << " ("
+                                  << sys_ref_.state_variables[i].name << "): " << e.what() << std::endl;
+                        dxdt_vec[i] = std::numeric_limits<double>::quiet_NaN();
+                    }
+                }
+            }
+        };
+
+        SystemFunctorForBuilder functor(current_system, current_params_for_eval);
+
+        ExperimentalData gen_data;
+        gen_data.times = time_points;
+        std::mt19937 rng(std::random_device{}());
+        std::normal_distribution<double> noise_dist(0.0, noise_stddev);
+
+        for (const auto &obs_pair : current_system.observable_definitions) {
+            gen_data.measurements[obs_pair.first].reserve(time_points.size());
+        }
+
+        std::vector<double> current_solver_state = initial_state_vec;
+        double current_sim_time = time_points[0];
+
+        size_t time_idx = 0;
+        while (time_idx < time_points.size()) {
+            double target_obs_time = time_points[time_idx];
+
+            if (target_obs_time < current_sim_time && std::abs(target_obs_time - current_sim_time) > 1e-9) {
+                throw std::runtime_error("Time points must be sorted and non-decreasing for data generation.");
+            }
+
+            while (current_sim_time < target_obs_time - 1e-9) {
+                double step_size = std::min(integration_dt, target_obs_time - current_sim_time);
+                if (step_size <= 1e-12) break;
+
+                current_solver_state = solve_ode_fixed_step_local<SystemFunctorForBuilder, std::vector<double>>(
+                  step_size, current_solver_state, functor, step_size);
+                current_sim_time += step_size;
+            }
+
+            std::map<Variable, double> eval_map_obs = current_params_for_eval;
+            for (size_t i = 0; i < current_system.state_variables.size(); ++i) {
+                eval_map_obs[current_system.state_variables[i]] = current_solver_state[i];
+            }
+
+            for (auto const &[obs_var, rf_def] : current_system.observable_definitions) {
+                double obs_val = rf_def.evaluate(eval_map_obs);
+                if (noise_stddev > 0.0 &&
+                    noise_stddev != std::numeric_limits<double>::infinity()) { // check for valid stddev
+                    obs_val += noise_dist(rng);
+                }
+                gen_data.measurements[obs_var].push_back(obs_val);
+            }
+            time_idx++;
+            if (time_idx < time_points.size() && time_idx > 0) { // If not the first point and not the last
+                // If the next obs time is the same as current, don't advance current_sim_time beyond it yet.
+                // But if distinct, current_sim_time is now effectively target_obs_time for the next integration step
+                // start.
+                if (time_points[time_idx] > target_obs_time + 1e-9) {
+                    current_sim_time = target_obs_time; // Reset to avoid overshooting if integration_dt was large
+                }
+            } else if (time_idx < time_points.size()) { // For the very first point if t0 > 0
+                current_sim_time = target_obs_time;
+            }
+        }
+        return gen_data;
+    }
+
+    const std::map<Variable, double> &get_true_parameter_values() const { return true_parameter_values_; }
+
+  private:
+    std::vector<Variable> system_state_variables_;
+    std::vector<Variable> system_parameters_;
+    std::map<std::string, RationalFunction<double>> state_equations_map_;
+    std::map<Observable, RationalFunction<double>> observable_definitions_;
+
+    std::map<std::string, Variable> name_to_variable_map_;
+    std::map<std::string, Observable> name_to_observable_map_;
+    std::map<Variable, double> true_parameter_values_;
+
+    std::vector<RationalFunction<double>> get_ordered_equations() const {
+        std::vector<RationalFunction<double>> ordered_rhs;
+        ordered_rhs.reserve(system_state_variables_.size());
+        for (const auto &sv : system_state_variables_) {
+            auto it = state_equations_map_.find(sv.name);
+            if (it == state_equations_map_.end()) {
+                throw std::runtime_error("Equation for state variable '" + sv.name + "' not defined.");
+            }
+            ordered_rhs.push_back(it->second);
+        }
+        return ordered_rhs;
+    }
+};
+
+} // namespace test_utils
+} // namespace poly_ode
 
 #endif // TEST_UTILS_HPP

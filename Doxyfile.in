@@ -1,0 +1,44 @@
+# Doxyfile 1.9.1 - Doxyfile.in template for CMake
+
+# Project settings
+PROJECT_NAME           = "@CMAKE_PROJECT_NAME@"
+PROJECT_NUMBER         = @PROJECT_VERSION@
+PROJECT_BRIEF          = "Polynomial ODE System Modeling and Analysis Library"
+OUTPUT_DIRECTORY       = @CMAKE_BINARY_DIR@/docs
+CREATE_SUBDIRS         = YES
+
+# Source settings
+INPUT                  = @CMAKE_SOURCE_DIR@/include \
+                         @CMAKE_SOURCE_DIR@/src \
+                         @CMAKE_SOURCE_DIR@/examples
+FILE_PATTERNS          = *.hpp *.cpp
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */build/* \
+                         */Testing/* \
+                         */tests/*
+
+# Extraction settings
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_ANON_NSPACES   = YES
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+
+# Output formats
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+
+# Diagram generation (requires Graphviz 'dot' tool)
+HAVE_DOT               = YES
+DOT_PATH               = "@DOXYGEN_DOT_PATH@"
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+UML_LOOK               = YES
+UML_LIMIT_NUM_FIELDS   = 50
+TEMPLATE_RELATIONS     = YES
+DOT_GRAPH_MAX_NODES    = 100
+MAX_DOT_GRAPH_DEPTH    = 0
+DOT_TRANSPARENT        = YES 

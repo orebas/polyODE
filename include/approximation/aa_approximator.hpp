@@ -81,20 +81,21 @@ class AAApproximator : public ObservableApproximator<T> {
     const std::vector<double> &get_support_points() const;
 
   private:
-    AAA<T> aaa_; // AAA approximator instance for type T
-    double tol_;
-    size_t mmax_;
-    unsigned int max_derivative_order_; // Max order for autodiff (e.g., 6 for 0th-5th)
+    AAA<T> aaa_;                        /**< Underlying AAA algorithm instance. */
+    double tol_;                        /**< Relative tolerance used for AAA convergence. */
+    size_t mmax_;                       /**< Maximum number of AAA iterations allowed. */
+    unsigned int max_derivative_order_; /**< Maximum derivative order supported by `derivative()`. */
 
     // No longer using AD
     // Need AAA<ceres::Jet<...>> for AD, or modification of evaluate
     // For now, keep it simple and add AD implementation later.
 
     /**
-     * @brief Templated evaluation logic for AAA rational function.
+     * @brief Core evaluation logic for the AAA rational function N(t)/D(t).
      * @tparam U The numeric type for evaluation (T or boost::math::differentiation::detail::fvar).
      * @param t Value (or fvar) at which to evaluate.
      * @return U Result of the evaluation.
+     * @throws std::runtime_error if the model has not been fitted or if the denominator is near zero.
      */
     template<typename U>
     U evaluate_templated(U t) const;

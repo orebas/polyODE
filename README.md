@@ -64,4 +64,58 @@ This project uses [vcpkg](https://github.com/microsoft/vcpkg) for dependency man
     *   Run an example: `./lotka_volterra_example` (or `.\Debug\lotka_volterra_example.exe` on Windows).
     *   Run tests using CTest: `ctest`
 
-This setup ensures that all required libraries (Boost, Ceres, GTest) are automatically downloaded, built, and found by CMake during the configuration step. 
+This setup ensures that all required libraries (Boost, Ceres, GTest) are automatically downloaded, built, and found by CMake during the configuration step.
+
+## Testing
+
+The project uses Google Test for unit and integration testing.
+
+### Running Tests
+
+1.  Configure the build using CMake (from a `build` directory):
+    ```bash
+    cd build
+    cmake ..
+    ```
+2.  Build the tests:
+    ```bash
+    # Using Ninja (if configured)
+    ninja
+    # Or using Make
+    make -j
+    ```
+3.  Run all tests using CTest:
+    ```bash
+    # From the build directory
+    ctest
+    # Or via the build tool
+    ninja test 
+    # make test
+    ```
+4.  Run a specific test executable:
+    ```bash
+    # From the build directory
+    ./<test_executable_name> --gtest_filter=TestSuiteName.TestCaseName
+    # e.g., ./polynomial_test --gtest_filter=PolynomialTest.Arithmetic
+    ```
+
+### Adding New Tests
+
+1.  Create a new test source file in the `tests/` directory (e.g., `tests/my_feature_test.cpp`). Ensure the filename follows the pattern `<target_name>_test.cpp`.
+2.  Include necessary headers and `<gtest/gtest.h>`.
+3.  Write test cases using Google Test macros (e.g., `TEST`, `TEST_F`, `EXPECT_EQ`, `ASSERT_TRUE`).
+4.  Add **one line** to the main `CMakeLists.txt` file in the "Test Targets" section:
+    ```cmake
+    # Add each test using the helper function
+    # ... existing add_polyode_test calls ...
+    add_polyode_test(my_feature_test) # Add this line (use the target name without _test.cpp)
+    ```
+5.  **If your test needs extra libraries** not already linked by `polyode_lib` (like Ceres, nlohmann_json, etc.):
+    *   Ensure the dependency is found (e.g., `find_package(MyLib REQUIRED)`).
+    *   Add a line *after* the `add_polyode_test` call to link it:
+        ```cmake
+        add_polyode_test(my_feature_test)
+        # Example: Link nlohmann_json if needed by my_feature_test.cpp
+        target_link_libraries(my_feature_test PRIVATE nlohmann_json::nlohmann_json)
+        ```
+6.  Re-run CMake configuration and build. 

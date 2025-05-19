@@ -12,13 +12,21 @@ const double PI = acos(-1.0);
 // Define common number of points
 const int N_POINTS = 200;
 
-// Define the type of AAApproximator we're testing
+// Define the primary type of AAApproximator we're testing (double precision)
 using TestApproximator = AAApproximator<double>;
 
 // Test fixture for AAApproximator tests
+// Provides common setup and helper methods for generating data and selecting test points.
 class AAApproximatorTest : public ::testing::Test {
   protected:
-    // Generate sample data for a given function
+    /**
+     * @brief Generates sample data (time-value pairs) for a given function.
+     * Populates the times_ and values_ member vectors.
+     * @param func Function mapping double (time) to double (value).
+     * @param t_start Start time for the data range.
+     * @param t_end End time for the data range.
+     * @param n_points Number of points to generate (evenly spaced).
+     */
     void generate_data(const std::function<double(double)> &func, double t_start, double t_end, int n_points) {
         times_.resize(n_points);
         values_.resize(n_points);
@@ -36,7 +44,12 @@ class AAApproximatorTest : public ::testing::Test {
         }
     }
 
-    // Helper to get midpoint evaluation time
+    /**
+     * @brief Calculates a time point roughly in the middle of the generated times_ data,
+     *        specifically between two central support points.
+     * @param n_points The number of points used to generate the current data (used for indexing).
+     * @return A time value suitable for testing evaluation between support points.
+     */
     double getMidpointTime(size_t n_points) {
         EXPECT_GE(times_.size(), 2) << "Need at least 2 points for midpoint"; // Use EXPECT_GE
         size_t mid_idx1 = n_points / 2;
@@ -54,7 +67,11 @@ class AAApproximatorTest : public ::testing::Test {
         return (times_[mid_idx1] + times_[mid_idx2]) / 2.0;
     }
 
-    // Helper to get support point evaluation time
+    /**
+     * @brief Selects a time point that corresponds to one of the generated data points (a support point).
+     * @param n_points The number of points used to generate the current data (used for indexing).
+     * @return A time value corresponding to a support point, suitable for testing exact evaluation.
+     */
     double getSupportPointTime(size_t n_points) {
         EXPECT_GE(times_.size(), 1) << "Need at least 1 point for support point"; // Use EXPECT_GE
         size_t mid_idx = n_points / 2;
@@ -65,8 +82,8 @@ class AAApproximatorTest : public ::testing::Test {
         return times_[mid_idx];
     }
 
-    std::vector<double> times_;
-    std::vector<double> values_;
+    std::vector<double> times_;  /**< Vector to store time points for fitting. */
+    std::vector<double> values_; /**< Vector to store corresponding values for fitting. */
 };
 
 // ----- FITTING TESTS: Test function value evaluation with tight tolerance ----- //
@@ -553,4 +570,68 @@ TEST_F(AAApproximatorTest, AutodiffErrorHandling) {
     // Test before fitting (should throw from inside derivative_autodiff)
     TestApproximator approx_unfitted;
     EXPECT_THROW(approx_unfitted.derivative(0.5, 1), std::runtime_error);
+}
+
+TEST_F(AAApproximatorTest, AutodiffHighOrderDerivativesSine) {
+    // Test higher-order derivatives using sin(x) for stability and accuracy
+    int n_points = 100;
+    double x_min = 0.0;
+    double x_max = 2.0 * PI;
+    std::vector<double> x_eval;
+    for (int i = 0; i < n_points; ++i) { x_eval.push_back(x_min + (x_max - x_min) * i / (n_points - 1)); }
+
+    std::vector<double> y_eval;
+    for (double x : x_eval) { y_eval.push_back(std::sin(x)); }
+
+    // Instantiate with template argument and optional constructor args
+    // Set max_order to 10 (not 11) to stay within compiled-in limits
+    AAApproximator<double> approximator(1e-9, 100, 10);
+
+    // Fit the model to the data
+    ASSERT_NO_THROW(approximator.fit(x_eval, y_eval));
+
+    // Test point (e.g., pi/6)
+    double test_x = PI / 6.0;
+
+    // Expected derivatives of sin(x) at pi/6:
+    // sin(pi/6) = 0.5
+    // cos(pi/6) = sqrt(3)/2 ~ 0.8660254
+    // -sin(pi/6) = -0.5
+    // -cos(pi/6) = -sqrt(3)/2 ~ -0.8660254
+    // sin(pi/6) = 0.5
+    // cos(pi/6) = sqrt(3)/2
+    // -sin(pi/6) = -0.5
+    // -cos(pi/6) = -sqrt(3)/2
+    // ... pattern repeats
+    std::vector<double> expected_derivs = {
+        std::sin(test_x),  // 0th
+        std::cos(test_x),  // 1st
+        -std::sin(test_x), // 2nd
+        -std::cos(test_x), // 3rd
+        std::sin(test_x),  // 4th
+        std::cos(test_x),  // 5th
+        -std::sin(test_x), // 6th
+        -std::cos(test_x)  // 7th
+    };
+
+    // Check accuracy up to 7th order
+    // Tolerances might need adjustment for higher orders
+    std::vector<double> tolerances = { 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1 };
+    for (int order = 0; order <= 7; ++order) {
+        ASSERT_LT(order, tolerances.size()); // Ensure tolerance is defined
+        double approx_deriv = 0.0;
+        EXPECT_NO_THROW(approx_deriv = approximator.derivative(test_x, order));
+        std::cout << "Order " << order << ": Expected = " << expected_derivs[order] << ", Approx = " << approx_deriv
+                  << std::endl;
+        EXPECT_NEAR(approx_deriv, expected_derivs[order], tolerances[order]) << "Order " << order;
+    }
+
+    // Check stability (no throw) up to 9th order (max_order-1)
+    for (int order = 8; order <= 9; ++order) {
+        EXPECT_NO_THROW({
+            double approx_deriv = approximator.derivative(test_x, order);
+            std::cout << "Order " << order << " (stability check): Approx = " << approx_deriv << std::endl;
+        }) << "Order "
+           << order;
+    }
 }
