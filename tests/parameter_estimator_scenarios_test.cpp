@@ -1,5 +1,5 @@
+#include "MSolveSolver.hpp"                  // <-- ADDED INCLUDE FOR MSOLVE
 #include "approximation/aa_approximator.hpp" // Include for AAApproximator
-#include "ceres_algebraic_solver.hpp"        // <-- Using CeresAlgebraicSolver
 #include "identifiability_analyzer.hpp"      // For AnalysisResults struct
 #include "parameter_estimator.hpp"
 #include "poly_ode/example_systems.hpp" // <-- ADDED INCLUDE
@@ -108,7 +108,7 @@ TEST_F(ParameterEstimatorScenariosTest, SingleStateOneParam) {
     ASSERT_EQ(approx_obs_values.size(), static_cast<size_t>(y_order + 1));
 
     // --- Instantiate ParameterEstimator ---
-    CeresAlgebraicSolver solver; // Use Ceres solver
+    MSolveSolver solver; // Use MSolveSolver
     ParameterEstimator estimator(solver, setup_data, approx_obs_values, t_eval);
 
     // --- Get and check algebraic system ---
@@ -232,7 +232,7 @@ TEST_F(ParameterEstimatorScenariosTest, LotkaVolterraFullEstimation) {
         ASSERT_NO_THROW(approx_obs_values[obs_deriv_var] = approximator.derivative(t_eval, order));
     }
 
-    CeresAlgebraicSolver solver; // Use Ceres solver
+    MSolveSolver solver; // Use MSolveSolver
     ParameterEstimator estimator(solver, setup_data, approx_obs_values, t_eval);
 
     const AlgebraicSystem &alg_sys = estimator.get_algebraic_system();
@@ -442,7 +442,7 @@ TEST_F(ParameterEstimatorScenariosTest, TrivialUnidentSystem) {
         ASSERT_NO_THROW(approx_obs_values[obs_deriv_var] = approximator.derivative(t_eval, order));
     }
 
-    CeresAlgebraicSolver solver; // Use Ceres solver
+    MSolveSolver solver; // Use MSolveSolver
     ParameterEstimator estimator(solver, setup_data, approx_obs_values, t_eval);
 
     const AlgebraicSystem &alg_sys = estimator.get_algebraic_system();
@@ -578,7 +578,7 @@ TEST_F(ParameterEstimatorScenariosTest, SumTestSystem) {
         ASSERT_NO_THROW(approx_obs_values[obs_deriv_var] = approximator.derivative(t_eval, order));
     }
 
-    CeresAlgebraicSolver solver; // Use Ceres solver
+    MSolveSolver solver; // Use MSolveSolver
     ParameterEstimator estimator(solver, setup_data, approx_obs_values, t_eval);
 
     const AlgebraicSystem &alg_sys = estimator.get_algebraic_system();

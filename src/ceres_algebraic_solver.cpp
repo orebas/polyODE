@@ -2,6 +2,7 @@
 #include <iostream> // For std::cerr, std::cout
 #include <limits>   // For std::numeric_limits
 #include <map>
+#include <sstream> // Add if not present
 #include <vector>
 
 namespace poly_ode {
@@ -68,8 +69,11 @@ CeresAlgebraicSolver::solve(const AlgebraicSystem &system) {
     if (summary.IsSolutionUsable()) {
         PolynomialSolutionMap current_solution;
         for (size_t i = 0; i < system.unknowns.size(); ++i) {
-            // Ceres works with doubles, so imaginary part is 0
-            current_solution[system.unknowns[i]] = std::complex<double>(initial_values[i], 0.0);
+            const auto &key_var_obj = system.unknowns[i];
+            std::ostringstream oss_key;
+            oss_key << key_var_obj; // Convert Variable to string
+            std::string string_key = oss_key.str();
+            current_solution[string_key] = std::complex<double>(initial_values[i], 0.0);
         }
         solutions.push_back(current_solution);
         std::cout << "    [CeresAlgebraicSolver] Solution found and considered usable by Ceres." << std::endl;

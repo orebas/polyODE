@@ -1,5 +1,6 @@
 #include "phc_solver.hpp"
-#include "polynomial.hpp" // For Variable, Polynomial, Monomial
+#include "algebraic_system.hpp" // Ensure full definition is available
+#include "polynomial.hpp"       // For Variable, Polynomial, Monomial etc.
 #include <nlohmann/json.hpp>
 
 #include <array> // For popen read buffer
@@ -328,7 +329,10 @@ PHCSolver::parse_phc_json_output(const std::string &json_file_path,
                     if (it.value().is_object() && it.value().contains("re") && it.value().contains("im")) {
                         double real_part = it.value()["re"].get<double>();
                         double imag_part = it.value()["im"].get<double>();
-                        current_solution[original_var] = std::complex<double>(real_part, imag_part);
+                        std::ostringstream oss_key;
+                        oss_key << original_var;
+                        std::string string_key = oss_key.str();
+                        current_solution[string_key] = std::complex<double>(real_part, imag_part);
                     } else {
                         std::cerr << "Warning: Expected complex object for variable '" << key
                                   << "' but got different type. Skipping variable." << std::endl;

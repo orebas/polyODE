@@ -66,6 +66,11 @@ find_package(Boost REQUIRED) # vcpkg handles finding this via toolchain
 find_package(Ceres REQUIRED) # vcpkg handles finding this via toolchain
 find_package(PkgConfig REQUIRED) # Needed to find msolve via its .pc file
 pkg_check_modules(MSOLVE REQUIRED IMPORTED_TARGET msolve) # vcpkg ensures msolve.pc is findable
+
+# Find FLINT library (used by univariate_solver_flint) - using pkg-config with vcpkg FLINT
+pkg_check_modules(FLINT REQUIRED IMPORTED_TARGET flint) # REINSTATED for vcpkg FLINT
+# find_package(FLINT REQUIRED) # REMOVED - vcpkg FLINT might not provide FLINTConfig.cmake
+
 # GTest will be found here now instead of FetchContent
 # find_package(GTest REQUIRED) # Moved lower, near testing section
 
@@ -88,6 +93,7 @@ add_library(polyode_lib STATIC
     src/ceres_algebraic_solver.cpp              # Added CeresAlgebraicSolver
     src/MSolveSolver.cpp                        # MSolve solver implementation
     src/example_systems.cpp                     # Added to compile and link with the library
+    src/univariate_solver_flint.cpp             # Added univariate solver implementation
 )
 # Specify that the library includes headers from the include/ directory.
 # PUBLIC makes these includes available to targets linking against polyode_lib.
@@ -96,10 +102,16 @@ target_include_directories(polyode_lib PUBLIC include)
 # PRIVATE because users of the library shouldn't need test utils.
 target_include_directories(polyode_lib PUBLIC tests)
 
+# Define __GMP_DONT_USE_CXX_STREAM_OPS for polyode_lib and any other
+# targets that will compile files including FLINT headers.
+# set(GMP_CXX_GUARD __GMP_DONT_USE_CXX_STREAM_OPS=1) # REMOVED
+# target_compile_definitions(polyode_lib PRIVATE ${GMP_CXX_GUARD}) # REMOVED
+
 # Link Boost if the library itself needs compiled Boost components (unlikely for header-only like Odeint)
 # Note: Boost::boost is a common interface target for header-only usage.
 # If specific compiled components are needed, list them in find_package and link e.g., Boost::system
-target_link_libraries(polyode_lib PUBLIC Ceres::ceres PkgConfig::MSOLVE) # Link msolve via PkgConfig imported target
+# target_link_libraries(polyode_lib PUBLIC Ceres::ceres PkgConfig::MSOLVE FLINT::flint) # OLD from previous attempt
+target_link_libraries(polyode_lib PUBLIC Ceres::ceres PkgConfig::MSOLVE PkgConfig::FLINT) # REVERTED to PkgConfig::FLINT
 
 # --- Example Targets ---
 # Example 1: Lotka-Volterra
@@ -218,6 +230,13 @@ add_polyode_test(exponential_decay_test)
 # add_polyode_test(parameter_estimation_test) # Removed old test
 add_polyode_test(identifiability_analyzer_test)
 add_polyode_test(approximation_test)
+add_polyode_test(univariate_solver_flint_test) # Added univariate solver test
+
+# Only link to FLINT for the univariate solver test
+# target_link_libraries(univariate_solver_flint_test PRIVATE FLINT::flint) # OLD from previous attempt
+target_link_libraries(univariate_solver_flint_test PRIVATE PkgConfig::FLINT) # REVERTED to PkgConfig::FLINT
+# Also add the compile definition to the test target if it includes FLINT directly
+# target_compile_definitions(univariate_solver_flint_test PRIVATE ${GMP_CXX_GUARD}) # REMOVED
 
 # Add the new parameter estimator test using the helper
 add_polyode_test(parameter_estimator_test)

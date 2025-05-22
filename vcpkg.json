@@ -5,6 +5,7 @@
         "boost-odeint",
         "ceres",
         "gtest",
-        "msolve"
+        "msolve",
+        "flint"
     ]
 }

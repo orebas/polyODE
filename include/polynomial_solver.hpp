@@ -1,17 +1,20 @@
 #ifndef POLYNOMIAL_SOLVER_HPP
 #define POLYNOMIAL_SOLVER_HPP
 
-#include "algebraic_system.hpp" // Includes Variable, Polynomial
+#include "polynomial.hpp" // Ensure Variable is defined before its use
 #include <complex>
 #include <map>
 #include <string>
 #include <vector>
 
-namespace poly_ode {
+namespace poly_ode { // This is the namespace for PolynomialSolver etc.
 
-// Define the solution type. Using complex for PHC compatibility from the start.
+// Define the solution type.
+// poly_ode::Variable is now known from polynomial.hpp
 using PolynomialSolutionMap = std::map<Variable, std::complex<double>>;
 using PolynomialSolutionSet = std::vector<PolynomialSolutionMap>;
+
+class AlgebraicSystem; // Forward declaration
 
 /**
  * @brief Abstract base class for polynomial system solvers.

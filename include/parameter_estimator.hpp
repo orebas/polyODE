@@ -2,10 +2,12 @@
 #define PARAMETER_ESTIMATOR_HPP
 
 #include <complex> // Needed for complex solutions
+#include <limits>  // For std::numeric_limits
 #include <map>
 #include <string>
 #include <vector>
 
+#include "algebraic_system.hpp"    // Include full definition of AlgebraicSystem
 #include "experimental_data.hpp"   // Include definition for ExperimentalData
 #include "observed_ode_system.hpp" // Need for process_solutions
 #include "poly_ode.hpp"          // Include main library header (includes polynomial.hpp, observed_ode_system.hpp etc.)
@@ -94,10 +96,11 @@ variable_to_string(const Variable &var) {
  * @brief Structure to hold a validated parameter estimation result.
  */
 struct EstimationResult {
-    std::map<Variable, double> parameters;         // Full parameter set (identifiable + fixed)
-    std::map<Variable, double> initial_conditions; // Solved initial conditions x(t0)
-    double error_metric;                           // e.g., RMSE against original data
-    // Add other relevant info? (e.g., solver status, t_eval used?)
+    std::map<Variable, double> parameters;
+    std::map<Variable, double> initial_conditions;
+    double error_metric = std::numeric_limits<double>::max();
+    bool is_stable = false;
+    bool steady_state_reached = false;
 };
 
 // --- Main Parameter Estimation Class --- //
@@ -164,18 +167,19 @@ class ParameterEstimator {
      * @param integration_rel_err Relative tolerance for ODE integration.
      * @param integration_dt_hint Initial step size hint for ODE integrator.
      * @param real_tolerance Tolerance for checking if imaginary part of a complex number is negligible.
+     * @param parameter_positive_threshold Threshold for positive parameter values.
      * @return std::vector<EstimationResult> A list of validated results.
      */
-    std::vector<EstimationResult> process_solutions_and_validate(
-      const PolynomialSolutionSet &solutions,
-      const ObservedOdeSystem &original_system,
-      const ExperimentalData &original_data, // Use the correct type
-      double t_initial,
-      double error_threshold,
-      double integration_abs_err = 1e-8,
-      double integration_rel_err = 1e-8,
-      double integration_dt_hint = 0.01,
-      double real_tolerance = 1e-6);
+    std::vector<EstimationResult> process_solutions_and_validate(const PolynomialSolutionSet &solutions,
+                                                                 const ObservedOdeSystem &original_system,
+                                                                 const ExperimentalData &original_data,
+                                                                 double t_initial,
+                                                                 double error_threshold,
+                                                                 double integration_abs_err = 1e-8,
+                                                                 double integration_rel_err = 1e-8,
+                                                                 double integration_dt_hint = 0.01,
+                                                                 double real_tolerance = 1e-6,
+                                                                 double parameter_positive_threshold = 1e-6);
 
     // TODO: Add methods for backward/forward integration and validation (Steps 5 & 6)
     //       These will take the PolynomialSolutionSet as input and likely filter for real solutions.
@@ -226,6 +230,7 @@ class ParameterEstimator {
  * @param integration_rel_err Relative tolerance for ODE integration.
  * @param integration_dt_hint Step size hint for ODE integration.
  * @param real_tolerance Tolerance for filtering complex solutions.
+ * @param parameter_positive_threshold Threshold for positive parameter values.
  * @return std::vector<EstimationResult> A combined list of all valid results found across all t_eval points,
  *         potentially containing duplicates if the same solution is found from different t_eval points.
  *         Results are typically sorted by RMSE within each t_eval processing step.
@@ -239,14 +244,15 @@ run_estimation_over_time_points(const ObservedOdeSystem &system,
                                 int max_deriv_order_config,
                                 double validation_error_threshold,
                                 double approximator_tol = 1e-9,
-                                unsigned int approximator_max_order = 11, // Support up to 10th deriv by default
+                                unsigned int approximator_max_order = 11,
                                 int ident_num_test_points = 5,
                                 double ident_rank_tol = 1e-9,
                                 double ident_null_tol = 1e-6,
                                 double integration_abs_err = 1e-8,
                                 double integration_rel_err = 1e-8,
                                 double integration_dt_hint = 0.01,
-                                double real_tolerance = 1e-6);
+                                double real_tolerance = 1e-6,
+                                double parameter_positive_threshold = 1e-6);
 
 } // namespace poly_ode
 

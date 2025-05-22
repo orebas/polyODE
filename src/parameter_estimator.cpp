@@ -12,9 +12,12 @@
 #include <limits>                            // For numeric_limits
 #include <queue>
 #include <set>     // Needed for handling unique observables
+#include <sstream> // Make sure sstream is included
 #include <utility> // For std::move
 
 namespace poly_ode {
+
+const double REAL_THRESHOLD = 1e-9; // Define REAL_THRESHOLD
 
 EstimationSetupData
 setup_estimation(const ObservedOdeSystem &system,
@@ -518,235 +521,448 @@ calculate_rmse(const std::map<Observable, std::vector<double>> &simulated,
 
 
 std::vector<EstimationResult>
-ParameterEstimator::process_solutions_and_validate(const PolynomialSolutionSet &solutions,
-                                                   const ObservedOdeSystem &original_system,
-                                                   const ExperimentalData &original_data,
-                                                   double t_initial,
-                                                   double error_threshold, // Initial absolute threshold
-                                                   double integration_abs_err,
-                                                   double integration_rel_err,
-                                                   double integration_dt_hint,
-                                                   double real_tolerance) {
-    std::cout << "--- Processing and Validating " << solutions.size() << " Solver Solutions ---" << std::endl;
-    std::vector<EstimationResult> final_valid_results;
-    // Temporary storage for results that integrate successfully before final filtering
-    std::vector<std::pair<EstimationResult, double>> potential_results;
+ParameterEstimator::process_solutions_and_validate(
+  const PolynomialSolutionSet &algebraic_solutions,
+  const ObservedOdeSystem &system,
+  const ExperimentalData &data,
+  double t_initial,
+  double error_threshold, // For RMSE validation
+  double integration_abs_tol,
+  double integration_rel_tol,
+  double integration_dt_hint,
+  double real_tolerance,                 // For checking if complex parts are negligible
+  double parameter_positive_threshold) { // For checking if parameters are positive
 
-    if (original_data.times.empty()) { throw std::runtime_error("Original data times vector is empty."); }
-    double t_final = original_data.times.back();
+    std::vector<EstimationResult> valid_estimations;
 
-    // Create the list of Observables present in the data for comparison
-    std::vector<Observable> data_observables;
-    for (const auto &pair : original_data.measurements) { data_observables.push_back(pair.first); }
-    std::sort(data_observables.begin(), data_observables.end());
+    if (!system_constructed_ && unknown_variables_.empty()) {
+        std::cerr << "Warning: ParameterEstimator::process_solutions_and_validate called when internal algebraic "
+                     "system unknowns are not yet determined. Results may be incomplete."
+                  << std::endl;
+    }
+    const auto &solved_unknown_vars = this->unknown_variables_;
 
-    int solution_idx = 0;
-    int real_solution_count = 0;
-    int integrated_count = 0;
+    const auto &ode_parameters = system.parameters;
+    const auto &ode_states = system.state_variables;
 
-    for (const auto &complex_sol_map : solutions) {
-        solution_idx++;
-        std::cout << "  Processing solution " << solution_idx << "..." << std::endl;
+    std::cout << "  [ParameterEstimator] Processing " << algebraic_solutions.size() << " algebraic solution(s)."
+              << std::endl;
 
-        // --- Filter for Real Solutions --- //
-        bool solution_is_real = true;
-        std::map<Variable, double> current_real_solution;
-        for (const auto &unknown_var : unknown_variables_) {
-            auto it = complex_sol_map.find(unknown_var);
-            if (it == complex_sol_map.end()) {
-                std::cerr << "    Warning: Solution map missing variable: " << unknown_var << ". Skipping solution."
-                          << std::endl;
-                solution_is_real = false;
-                break;
-            }
-            if (!is_real(it->second, real_tolerance)) {
-                std::cout << "    Skipping solution: Non-real value for " << unknown_var << " (" << it->second << ")"
-                          << std::endl;
-                solution_is_real = false;
-                break;
-            }
-            current_real_solution[unknown_var] = it->second.real();
-        }
+    int sol_idx = 0;
+    for (const auto &complex_sol_map : algebraic_solutions) {
+        sol_idx++;
+        std::cout << "    [ParameterEstimator] Analyzing algebraic solution #" << sol_idx << std::endl;
 
-        if (!solution_is_real) {
-            continue; // Move to next solution
-        }
-        real_solution_count++;
-        std::cout << "    Solution is real." << std::endl;
+        EstimationResult current_result;
+        current_result.parameters.clear();
+        current_result.initial_conditions.clear();
+        bool params_valid = true;
+        bool states_valid = true;
+        bool aux_vars_valid = true;
 
-        // --- Prepare for Integration --- //
-        std::map<Variable, double> current_params = setup_data_ref_.non_identifiable_parameters;
-        std::vector<double> state_at_t_eval(original_system.num_states());
-        bool data_extraction_ok = true;
-        for (size_t i = 0; i < original_system.num_states(); ++i) {
-            const Variable &state_var = original_system.state_variables[i];
-            auto it = current_real_solution.find(state_var);
-            if (it != current_real_solution.end()) {
-                state_at_t_eval[i] = it->second;
-            } else {
-                std::cerr << "    Error: Real solution map missing state variable: " << state_var
-                          << ". Skipping solution." << std::endl;
-                data_extraction_ok = false;
-                break;
-            }
-        }
-        if (!data_extraction_ok) {
-            continue; // Move to next solution
-        }
+        for (const auto &param_var : ode_parameters) {
+            // NEW WAY: Use Variable object as key
+            auto it = complex_sol_map.find(param_var);
 
-        for (const auto &param_var : setup_data_ref_.identifiable_parameters) {
-            auto it = current_real_solution.find(param_var);
-            if (it != current_real_solution.end()) {
-                current_params[param_var] = it->second;
-            } else {
-                std::cerr << "    Error: Real solution map missing identifiable parameter: " << param_var
-                          << ". Skipping solution." << std::endl;
-                data_extraction_ok = false;
-                break;
-            }
-        }
-        if (!data_extraction_ok) {
-            continue; // Move to next solution
-        }
-
-        // Define system functor for odeint
-        auto system_functor = [&](const std::vector<double> &state, std::vector<double> &dxdt, double /*t*/) {
-            std::map<Variable, double> eval_map = current_params;
-            for (size_t i = 0; i < original_system.num_states(); ++i) {
-                eval_map[original_system.state_variables[i]] = state[i];
-            }
-            dxdt.resize(original_system.num_states());
-            for (size_t i = 0; i < original_system.num_states(); ++i) {
-                try {
-                    dxdt[i] = original_system.equations[i].evaluate(eval_map);
-                } catch (const std::exception &e) {
-                    std::cerr << "Error evaluating RHS during integration: " << e.what() << std::endl;
-                    // Fill with NaN to signal failure?
-                    std::fill(dxdt.begin(), dxdt.end(), std::numeric_limits<double>::quiet_NaN());
-                    throw; // Rethrow to stop integration
+            if (it != complex_sol_map.end()) {
+                if (std::abs(it->second.imag()) > real_tolerance) {
+                    std::cout << "      Parameter " << param_var << " has significant imaginary part: " << it->second
+                              << ". Discarding solution." << std::endl;
+                    params_valid = false;
+                    break;
                 }
-            }
-        };
-
-        // --- Step 5: Backward Integration --- //
-        std::cout << "    Integrating backward from t=" << t_eval_ << " to t=" << t_initial << "..." << std::endl;
-        std::vector<double> state_at_t_initial = state_at_t_eval;
-        try {
-            odeint::integrate_const(odeint::runge_kutta4<std::vector<double>>(),
-                                    system_functor,
-                                    state_at_t_initial,
-                                    t_eval_,
-                                    t_initial,
-                                    -std::abs(integration_dt_hint));
-        } catch (const std::exception &e) {
-            std::cerr << "    Error during backward integration: " << e.what() << ". Skipping solution." << std::endl;
-            continue;
-        }
-        std::cout << "      Backward integration complete." << std::endl;
-
-        // --- Step 6: Forward Simulation & Validation --- //
-        std::cout << "    Integrating forward from t=" << t_initial << " to t=" << t_final << "..." << std::endl;
-
-        std::map<Observable, std::vector<double>> sim_measurements;
-        for (const auto &obs : data_observables) { sim_measurements[obs].reserve(original_data.times.size()); }
-        size_t obs_data_idx = 0;
-        auto observer = [&](const std::vector<double> &state, double t) {
-            while (obs_data_idx < original_data.times.size() && original_data.times[obs_data_idx] < t - 1e-9) {
-                obs_data_idx++;
-            }
-            if (obs_data_idx < original_data.times.size() && std::abs(t - original_data.times[obs_data_idx]) < 1e-9) {
-                std::map<Variable, double> eval_map = current_params;
-                for (size_t i = 0; i < original_system.num_states(); ++i) {
-                    eval_map[original_system.state_variables[i]] = state[i];
-                }
-                for (const auto &obs : data_observables) {
-                    try {
-                        sim_measurements[obs].push_back(
-                          original_system.observable_definitions.at(obs).evaluate(eval_map));
-                    } catch (const std::exception &e) {
-                        std::cerr << "Error evaluating observable " << obs.name
-                                  << " during forward integration: " << e.what() << std::endl;
-                        sim_measurements[obs].push_back(std::numeric_limits<double>::quiet_NaN()); // Record error
+                double val = it->second.real();
+                current_result.parameters[param_var] = val;
+                std::cout << "      Found parameter " << param_var << " = " << val << std::endl;
+            } else {
+                // Check if this parameter was supposed to be solved by the algebraic solver
+                bool was_solved_for = false;
+                for (const auto &solved_uk_var_obj :
+                     solved_unknown_vars) {               // solved_unknown_vars are from estimator's perspective
+                    if (solved_uk_var_obj == param_var) { // Compare Variable objects directly
+                        was_solved_for = true;
+                        break;
                     }
                 }
-                obs_data_idx++; // Move to next observation time point
+                if (was_solved_for) {
+                    // This specific parameter was part of the algebraic system unknowns but not found in solution.
+                    std::cout << "      Parameter " << param_var << " (expected in solution) not found. Discarding."
+                              << std::endl;
+                    params_valid = false;
+                    break;
+                }
+                // If not in solved_unknown_vars, it might be a fixed parameter or not part of this algebraic solve.
+                // It will be added later if it's a fixed non-identifiable parameter.
             }
-        };
-
-        std::vector<double> state_forward = state_at_t_initial;
-        try {
-            odeint::integrate_times(odeint::make_controlled<odeint::runge_kutta_dopri5<std::vector<double>>>(
-                                      integration_abs_err, integration_rel_err),
-                                    system_functor,
-                                    state_forward,
-                                    original_data.times.begin(),
-                                    original_data.times.end(),
-                                    integration_dt_hint,
-                                    observer);
-        } catch (const std::exception &e) {
-            std::cerr << "    Error during forward integration: " << e.what() << ". Skipping solution." << std::endl;
+        }
+        if (!params_valid) {
+            std::cout << "      Parameter validation failed for solution #" << sol_idx << std::endl;
             continue;
         }
-        std::cout << "      Forward integration complete." << std::endl;
-
-        // Calculate Error Metric
-        double rmse = calculate_rmse(sim_measurements, original_data.measurements, data_observables);
-        std::cout << "      RMSE = " << rmse << std::endl;
-
-        // Store result if integration succeeded and RMSE is valid
-        if (!std::isnan(rmse)) {
-            integrated_count++;
-            EstimationResult result;
-            result.parameters = current_params;
-            for (size_t i = 0; i < original_system.num_states(); ++i) {
-                result.initial_conditions[original_system.state_variables[i]] = state_at_t_initial[i];
+        // Add fixed non-identifiable parameters if not already present (e.g. if they were also estimated)
+        for (const auto &fixed_param_pair : setup_data_ref_.non_identifiable_parameters) {
+            if (current_result.parameters.find(fixed_param_pair.first) == current_result.parameters.end()) {
+                current_result.parameters[fixed_param_pair.first] = fixed_param_pair.second;
+                std::cout << "      Added fixed parameter " << fixed_param_pair.first << " = "
+                          << fixed_param_pair.second << std::endl;
             }
-            result.error_metric = rmse;
-            // Store temporarily regardless of initial threshold
-            potential_results.push_back({ result, rmse });
-        } else {
-            std::cout << "      Skipping result due to NaN RMSE." << std::endl;
+        }
+        std::cout << "      Parameters for solution #" << sol_idx << " seem valid/populated." << std::endl;
+
+        // Extract and validate state initial conditions (values at t_eval)
+        for (const auto &state_var : ode_states) { // state_var here is Variable(name, deriv_level=0)
+            // We are looking for the value of state_var (at t_eval), which was an unknown in the algebraic system.
+            // The corresponding Variable object in solved_unknown_vars would be state_var itself.
+            auto it = complex_sol_map.find(state_var);
+
+            if (it != complex_sol_map.end()) {
+                if (std::abs(it->second.imag()) > real_tolerance) {
+                    std::cout << "      State IC (value at t_eval) " << state_var
+                              << " has significant imaginary part: " << it->second << ". Discarding solution."
+                              << std::endl;
+                    states_valid = false;
+                    break;
+                }
+                double val = it->second.real();
+                current_result.initial_conditions[state_var] = val; // Store under state_var (which is IC var)
+                std::cout << "      Found state IC (value at t_eval) " << state_var << " = " << val << std::endl;
+            } else {
+                // Check if this state_var (as an IC, i.e., deriv_level 0) was part of the algebraic system's unknowns
+                bool was_solved_for = false;
+                for (const auto &solved_uk_var_obj : solved_unknown_vars) {
+                    if (solved_uk_var_obj == state_var) { // Direct comparison for Variable(name,0)
+                        was_solved_for = true;
+                        break;
+                    }
+                }
+                if (was_solved_for) {
+                    std::cout << "      State IC (value at t_eval) " << state_var
+                              << " (expected in solution) not found. Discarding." << std::endl;
+                    states_valid = false;
+                    break;
+                }
+                // If not in solved_unknown_vars, it implies this state at t_eval was not directly solved for.
+                // This could be an issue if it was needed for backward integration.
+                // However, process_solutions_and_validate is called with solutions for solved_unknown_vars.
+                // So, if state_var was in solved_unknown_vars, it should be found.
+            }
+        }
+        if (!states_valid) {
+            std::cout << "      State IC (at t_eval) validation failed for solution #" << sol_idx << std::endl;
+            continue;
+        }
+        std::cout << "      State ICs (at t_eval) for solution #" << sol_idx << " seem valid/populated." << std::endl;
+
+        // Check other auxiliary algebraic variables (derivatives of states at t_eval)
+        for (const auto &solved_var : solved_unknown_vars) {
+            // Check if it's already processed as a parameter or a base state variable (IC at t_eval)
+            bool is_param = false;
+            for (const auto &p : ode_parameters)
+                if (p == solved_var) is_param = true;
+
+            bool is_base_state = false;
+            for (const auto &s : ode_states)
+                if (s == solved_var) is_base_state = true;
+
+            if (!is_param && !is_base_state) { // This is a derivative or other aux var
+                auto it = complex_sol_map.find(solved_var);
+                if (it != complex_sol_map.end()) {
+                    if (std::abs(it->second.imag()) > real_tolerance) {
+                        std::cout << "      Auxiliary unknown " << solved_var
+                                  << " has significant imaginary part: " << it->second << ". Discarding solution."
+                                  << std::endl;
+                        aux_vars_valid = false;
+                        break;
+                    }
+                    std::cout << "      Found aux unknown " << solved_var << " = " << it->second.real() << std::endl;
+                } else {
+                    // This is critical: if it was in solved_unknown_vars, it MUST be in the solution map from the
+                    // solver.
+                    std::cout << "      CRITICAL: Auxiliary unknown " << solved_var
+                              << " (from solved_unknown_vars) not found in solution map. Discarding." << std::endl;
+                    aux_vars_valid = false;
+                    break;
+                }
+            }
+        }
+        if (!aux_vars_valid) {
+            std::cout << "      Auxiliary variable validation failed for solution #" << sol_idx << std::endl;
+            continue;
+        }
+        std::cout << "      Auxiliary variables for solution #" << sol_idx << " are valid." << std::endl;
+
+        // --- Full Validation: Backward and Forward ODE Integration ---
+        // current_result.parameters now holds the solved parameters.
+        // current_result.initial_conditions currently holds x(t_eval).
+
+        // 1. Prepare for backward integration: extract states at t_eval
+        ODESystemStateType<double> x_at_t_eval(system.num_states());
+        bool t_eval_states_complete = true;
+        for (size_t i = 0; i < system.state_variables.size(); ++i) {
+            const auto &state_var = system.state_variables[i]; // This is Var(name,0)
+            if (current_result.initial_conditions.count(state_var)) {
+                x_at_t_eval[i] = current_result.initial_conditions.at(state_var);
+            } else {
+                std::cerr << "      Error: State " << state_var
+                          << " needed for backward integration (from t_eval) not found in solution map values."
+                          << std::endl;
+                t_eval_states_complete = false;
+                break;
+            }
         }
 
-    } // End loop over solutions
+        if (!t_eval_states_complete) {
+            std::cout << "    Solution #" << sol_idx << " cannot proceed to ODE validation (missing states at t_eval)."
+                      << std::endl;
+            continue;
+        }
 
-    std::cout << "--- Filtering Validated Solutions --- " << std::endl;
-    std::cout << "  Processed: " << solutions.size() << " solutions from solver." << std::endl;
-    std::cout << "  Real & Integrated: " << integrated_count << " solutions." << std::endl;
+        // Clear current_result.initial_conditions as it will be repopulated with x(t_initial)
+        current_result.initial_conditions.clear();
 
-    if (potential_results.empty()) {
-        std::cout << "  No solutions successfully integrated and validated." << std::endl;
-        return final_valid_results; // Return empty vector
+        // 2. Perform Backward Integration from t_eval to t_initial
+        std::cout << "      Performing backward ODE integration from t_eval=" << t_eval_
+                  << " to t_initial=" << t_initial << std::endl;
+        ODESystemStateType<double> x_at_t_initial = x_at_t_eval;
+
+        try {
+            std::map<std::string, RationalFunction<double>> obs_map_for_odesys_bwd;
+            for (const auto &obs_pair : system.observable_definitions) {
+                obs_map_for_odesys_bwd[obs_pair.first.name] = obs_pair.second;
+            }
+            ODESystem<double> ode_integrator_system(
+              system.state_variables, system.equations, system.parameters, obs_map_for_odesys_bwd);
+            ode_integrator_system.set_parameter_values(current_result.parameters);
+
+            std::cout << "        DEBUG: Backward Integration Params:" << std::endl;
+            for (const auto &p_entry : current_result.parameters) {
+                std::cout << "          " << p_entry.first << " = " << p_entry.second << std::endl;
+            }
+            std::cout << "        DEBUG: Backward Integration x(t_eval): [ ";
+            for (double val : x_at_t_eval) { std::cout << val << " "; }
+            std::cout << "]" << std::endl;
+            std::cout << "        DEBUG: t_eval = " << t_eval_ << ", t_initial = " << t_initial << std::endl;
+
+            if (std::abs(t_eval_ - t_initial) > 1e-9) {
+                if (t_eval_ > t_initial) { // Backward in time
+                    std::cout << "        DEBUG: Attempting backward integration with RK4 (fixed steps)." << std::endl;
+                    odeint::runge_kutta4<ODESystemStateType<double>> rk4_stepper;
+                    double fixed_dt_bwd = -std::abs(integration_dt_hint);
+                    if (std::abs(fixed_dt_bwd) < 1e-7) fixed_dt_bwd = -1e-4;
+                    // Ensure fixed_dt_bwd has a sign that moves current_t towards t_initial
+                    if (t_eval_ > t_initial && fixed_dt_bwd > 0) fixed_dt_bwd = -fixed_dt_bwd;
+                    if (t_eval_ < t_initial && fixed_dt_bwd < 0)
+                        fixed_dt_bwd = -fixed_dt_bwd; // Should use fwd logic though
+
+                    std::cout << "        DEBUG: RK4 Backward: t_eval_ = " << t_eval_ << ", t_initial = " << t_initial
+                              << ", fixed_dt_bwd = " << fixed_dt_bwd << std::endl;
+
+                    double current_t = t_eval_;
+                    int actual_steps_taken = 0;
+                    const int MAX_RK4_STEPS = 200000; // Increased safety break
+
+                    // Integrate from t_eval_ towards t_initial
+                    while ((fixed_dt_bwd < 0 && current_t > t_initial + std::abs(fixed_dt_bwd * 0.01)) ||
+                           (fixed_dt_bwd > 0 && current_t < t_initial - std::abs(fixed_dt_bwd * 0.01))) {
+                        double step_to_take = fixed_dt_bwd;
+                        // Check if the next full step would overshoot t_initial
+                        if ((fixed_dt_bwd < 0 && current_t + fixed_dt_bwd < t_initial) ||
+                            (fixed_dt_bwd > 0 && current_t + fixed_dt_bwd > t_initial)) {
+                            step_to_take = t_initial - current_t; // Adjust to hit t_initial exactly
+                        }
+                        if (std::abs(step_to_take) < 1e-12) break;
+
+                        rk4_stepper.do_step(ode_integrator_system, x_at_t_initial, current_t, step_to_take);
+                        current_t += step_to_take;
+                        actual_steps_taken++;
+                        if (actual_steps_taken > MAX_RK4_STEPS) {
+                            std::cout << "        WARNING: Backward RK4 took too many steps (>" << MAX_RK4_STEPS
+                                      << "), aborting this integration." << std::endl;
+                            // Optionally, mark solution as unstable or throw
+                            throw std::runtime_error("Backward RK4 integration took too many steps.");
+                        }
+                    }
+                    // Potentially one final adjustment step if not exactly at t_initial due to loop condition
+                    if (std::abs(current_t - t_initial) > 1e-9 &&
+                        std::abs(current_t - t_initial) < std::abs(fixed_dt_bwd)) {
+                        double final_step = t_initial - current_t;
+                        if (std::abs(final_step) > 1e-12) {
+                            rk4_stepper.do_step(ode_integrator_system, x_at_t_initial, current_t, final_step);
+                            current_t += final_step;
+                            actual_steps_taken++;
+                        }
+                    }
+                    std::cout << "        Backward integration with RK4 finished at t = " << current_t << " after "
+                              << actual_steps_taken << " steps." << std::endl;
+
+                } else { // Forward in time (t_eval_ < t_initial) - keep adaptive for this for now
+                    auto stepper = odeint::make_controlled<odeint::runge_kutta_dopri5<ODESystemStateType<double>>>(
+                      integration_abs_tol, integration_rel_tol);
+                    double dt_fwd_to_initial_hint =
+                      std::min(std::abs(integration_dt_hint), std::abs(t_initial - t_eval_));
+                    if (dt_fwd_to_initial_hint == 0.0) dt_fwd_to_initial_hint = 1e-5;
+                    std::cout << "        DEBUG: Forward to t_initial dt_hint = " << dt_fwd_to_initial_hint
+                              << std::endl;
+                    try {
+                        size_t steps = odeint::integrate_adaptive(
+                          stepper, ode_integrator_system, x_at_t_initial, t_eval_, t_initial, dt_fwd_to_initial_hint);
+                        std::cout << "        Forward integration (t_eval < t_initial) to find x(t_initial): " << steps
+                                  << std::endl;
+                    } catch (const std::exception &odeint_err) {
+                        std::cerr << "        ERROR during integrate_adaptive (forward to t_initial): "
+                                  << odeint_err.what() << std::endl;
+                        throw;
+                    }
+                }
+            } else {
+                x_at_t_initial = x_at_t_eval;
+                std::cout << "        t_eval == t_initial, using x(t_eval) directly as x(t_initial)." << std::endl;
+            }
+
+            std::cout << "        DEBUG: Backward Integration x_at_t_initial: [ ";
+            for (double val : x_at_t_initial) { std::cout << val << " "; }
+            std::cout << "]" << std::endl;
+
+            for (size_t i = 0; i < system.state_variables.size(); ++i) {
+                current_result.initial_conditions[system.state_variables[i]] = x_at_t_initial[i];
+            }
+            std::cout << "        Backward integration successful. x(t_initial) obtained." << std::endl;
+        } catch (const std::exception &e) {
+            std::cerr << "      Error during backward/state-finding ODE integration: " << e.what() << std::endl;
+            std::cout << "    Solution #" << sol_idx << " failed state-finding ODE integration." << std::endl;
+            continue;
+        }
+
+        // 3. Perform Forward Integration & Calculate RMSE
+        std::cout << "      Performing forward ODE integration and calculating RMSE..." << std::endl;
+        try {
+            std::map<std::string, RationalFunction<double>> obs_map_for_odesys_fwd;
+            for (const auto &obs_pair : system.observable_definitions) {
+                obs_map_for_odesys_fwd[obs_pair.first.name] = obs_pair.second;
+            }
+            ODESystem<double> ode_forward_system(
+              system.state_variables, system.equations, system.parameters, obs_map_for_odesys_fwd);
+            ode_forward_system.set_parameter_values(current_result.parameters);
+
+            ODESystemStateType<double> forward_sim_initial_state(system.num_states());
+            for (size_t i = 0; i < system.state_variables.size(); ++i) {
+                forward_sim_initial_state[i] = current_result.initial_conditions.at(system.state_variables[i]);
+            }
+
+            // Observer for forward integration at data.times
+            struct ForwardIntegrationObserver {
+                ODESystem<double>::ResultsType &sim_traj_ref;
+                const ObservedOdeSystem &original_sys_ref;
+                const ExperimentalData &data_ref_;
+                ODESystem<double> &eval_system_ref;
+
+                ForwardIntegrationObserver(ODESystem<double>::ResultsType &trajectories,
+                                           const ObservedOdeSystem &original_system_definition,
+                                           const ExperimentalData &experimental_data,
+                                           ODESystem<double> &system_for_evaluation)
+                  : sim_traj_ref(trajectories)
+                  , original_sys_ref(original_system_definition)
+                  , data_ref_(experimental_data)
+                  , eval_system_ref(system_for_evaluation) {
+                    sim_traj_ref.clear();
+                    sim_traj_ref["time"].reserve(data_ref_.times.size());
+                    for (const auto &obs_pair : original_sys_ref.observable_definitions) {
+                        sim_traj_ref[obs_pair.first.name].reserve(data_ref_.times.size());
+                    }
+                }
+
+                void operator()(const ODESystemStateType<double> &x, double t) {
+                    sim_traj_ref["time"].push_back(t);
+                    std::map<std::string, double> obs_values = eval_system_ref.evaluate_observables(x);
+                    for (const auto &obs_pair : original_sys_ref.observable_definitions) {
+                        const std::string &obs_name = obs_pair.first.name;
+                        if (obs_values.count(obs_name)) {
+                            sim_traj_ref[obs_name].push_back(obs_values.at(obs_name));
+                        } else {
+                            sim_traj_ref[obs_name].push_back(std::numeric_limits<double>::quiet_NaN());
+                        }
+                    }
+                }
+            };
+
+            ODESystem<double>::ResultsType simulated_trajectories;
+            ForwardIntegrationObserver fwd_observer(simulated_trajectories, system, data, ode_forward_system);
+
+            std::vector<double> sorted_data_times = data.times;
+            if (!sorted_data_times.empty()) { // Ensure not empty before sort or access
+                std::sort(sorted_data_times.begin(), sorted_data_times.end());
+
+                // Ensure initial state for integrate_times matches the first time point if it's t_initial
+                ODESystemStateType<double> actual_start_state = forward_sim_initial_state;
+                double actual_start_time = t_initial;
+
+                if (std::abs(sorted_data_times.front() - t_initial) > 1e-9) {
+                    // If data.times doesn't start at t_initial, integrate to data.times.front() first
+                    std::cout << "        Adjusting: Integrating from t_initial=" << t_initial
+                              << " to first data point t=" << sorted_data_times.front() << std::endl;
+                    auto stepper_init = odeint::make_controlled<odeint::runge_kutta_dopri5<ODESystemStateType<double>>>(
+                      integration_abs_tol, integration_rel_tol);
+                    odeint::integrate_adaptive(
+                      stepper_init,
+                      ode_forward_system,
+                      actual_start_state,
+                      t_initial,
+                      sorted_data_times.front(),
+                      std::min(std::abs(integration_dt_hint), std::abs(sorted_data_times.front() - t_initial)));
+                    actual_start_time = sorted_data_times.front();
+                }
+                // Observe at all sorted_data_times points, starting from actual_start_state at actual_start_time
+                auto stepper = odeint::make_controlled<odeint::runge_kutta_dopri5<ODESystemStateType<double>>>(
+                  integration_abs_tol, integration_rel_tol);
+                odeint::integrate_times(stepper,
+                                        ode_forward_system,
+                                        actual_start_state,
+                                        sorted_data_times.begin(),
+                                        sorted_data_times.end(),
+                                        std::abs(integration_dt_hint),
+                                        fwd_observer);
+            } else {
+                std::cout << "        Warning: data.times is empty for forward integration." << std::endl;
+            }
+
+            std::vector<Observable> observables_to_compare;
+            for (const auto &meas_pair : data.measurements) { observables_to_compare.push_back(meas_pair.first); }
+            std::map<Observable, std::vector<double>> conform_simulated_traj;
+            for (const auto &obs_obj : observables_to_compare) {
+                const std::string &obs_name_str = obs_obj.name;
+                if (simulated_trajectories.count(obs_name_str)) {
+                    conform_simulated_traj[obs_obj] = simulated_trajectories.at(obs_name_str);
+                } else {
+                    std::cerr << "        Warning: Simulated trajectory for observable " << obs_name_str
+                              << " not found." << std::endl;
+                    conform_simulated_traj[obs_obj] = {};
+                }
+            }
+            current_result.error_metric =
+              calculate_rmse(conform_simulated_traj, data.measurements, observables_to_compare);
+            std::cout << "        Forward integration and RMSE calculation successful. RMSE = "
+                      << current_result.error_metric << std::endl;
+
+        } catch (const std::exception &e) {
+            std::cerr << "      Error during forward ODE integration or RMSE calculation: " << e.what() << std::endl;
+            current_result.error_metric = std::numeric_limits<double>::infinity();
+        }
+
+        bool rmse_passes = (current_result.error_metric < error_threshold);
+        current_result.is_stable = true;             // Assuming stability if integration completes, simplistic for now
+        current_result.steady_state_reached = false; // Simplistic
+
+        if (params_valid && states_valid && aux_vars_valid && rmse_passes) {
+            valid_estimations.push_back(current_result);
+            std::cout << "    Solution #" << sol_idx << " passed all current validation checks." << std::endl;
+        } else {
+            std::cout << "    Solution #" << sol_idx << " failed validation (params_valid=" << params_valid
+                      << ", states_valid=" << states_valid << ", aux_vars_valid=" << aux_vars_valid
+                      << ", rmse_passes=" << rmse_passes << ")." << std::endl;
+        }
     }
 
-    // Find minimum RMSE
-    auto min_el_it =
-      std::min_element(potential_results.begin(), potential_results.end(), [](const auto &a, const auto &b) {
-          return a.second < b.second; // Compare RMSE values
-      });
-    double min_rmse = min_el_it->second;
-    std::cout << "  Minimum RMSE found: " << min_rmse << std::endl;
-
-    // Determine final threshold (min_rmse * 100, but capped by original absolute threshold)
-    double relative_threshold = min_rmse * 100.0;
-    double final_threshold = std::min(error_threshold, relative_threshold);
-    std::cout << "  Absolute error threshold: " << error_threshold << std::endl;
-    std::cout << "  Relative error threshold (100x min_rmse): " << relative_threshold << std::endl;
-    std::cout << "  Using final threshold: " << final_threshold << std::endl;
-
-    // Filter potential results based on the final threshold
-    for (const auto &pair : potential_results) {
-        if (pair.second <= final_threshold) { final_valid_results.push_back(pair.first); }
-    }
-
-    // Sort final results by RMSE
-    std::sort(final_valid_results.begin(), final_valid_results.end(), [](const auto &a, const auto &b) {
-        return a.error_metric < b.error_metric;
-    });
-
-    std::cout << "--- Processing Complete: Returning " << final_valid_results.size()
-              << " Valid Solutions (sorted by RMSE) --- " << std::endl;
-    return final_valid_results;
+    return valid_estimations;
 }
 
 // --- Higher-Level Estimation Function Implementation --- //
@@ -767,7 +983,8 @@ run_estimation_over_time_points(const ObservedOdeSystem &system,
                                 double integration_abs_err,
                                 double integration_rel_err,
                                 double integration_dt_hint,
-                                double real_tolerance) {
+                                double real_tolerance,
+                                double parameter_positive_threshold) { // Added parameter_positive_threshold
     std::cout << "===== Starting Estimation Over Time Points =====" << std::endl;
     std::vector<EstimationResult> all_valid_results;
 
@@ -874,7 +1091,7 @@ run_estimation_over_time_points(const ObservedOdeSystem &system,
         // 7. Process solutions (backward/forward/validate)
         if (!solutions.empty()) {
             try {
-                double t_initial = data.times.front(); // Get initial time from data
+                double t_initial = data.times.front();
                 std::vector<EstimationResult> results_for_t =
                   estimator.process_solutions_and_validate(solutions,
                                                            system,
@@ -884,13 +1101,13 @@ run_estimation_over_time_points(const ObservedOdeSystem &system,
                                                            integration_abs_err,
                                                            integration_rel_err,
                                                            integration_dt_hint,
-                                                           real_tolerance);
+                                                           real_tolerance,
+                                                           parameter_positive_threshold);
                 // Append valid results from this t_eval to the main list
                 all_valid_results.insert(all_valid_results.end(), results_for_t.begin(), results_for_t.end());
             } catch (const std::exception &e) {
                 std::cerr << "  Error processing/validating solutions for t_eval = " << t_eval << ": " << e.what()
                           << std::endl;
-                // Continue to next t_eval even if processing fails for one point?
             }
         }
     }

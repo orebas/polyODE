@@ -94,16 +94,38 @@ class ODESystem {
     }
 
     // --- System Evaluation (for odeint) ---
-    void operator()(const StateType &x, StateType &dxdt, double /* t */) const {
+    void operator()(const StateType &x, StateType &dxdt, double t) const {
         if (x.size() != m_state_vars.size()) {
             throw std::logic_error("Input state size mismatch in ODESystem::operator().");
         }
         update_value_map(x); // Prepare map with current state and parameters
 
+        // ---- START DEBUG ----
+        std::cout << "    DEBUG [ODESystem::operator() t=" << t << "] Value map for RHS eval:" << std::endl;
+        for (const auto &pair : m_value_map) {
+            std::cout << "      " << pair.first << " = " << pair.second << std::endl;
+        }
+        std::cout << "    DEBUG [ODESystem::operator()] Input state x: [ ";
+        for (const auto &val : x) { std::cout << val << " "; }
+        std::cout << "]" << std::endl;
+        // ---- END DEBUG ----
+
         dxdt.resize(m_rhs_equations.size());
         for (size_t i = 0; i < m_rhs_equations.size(); ++i) {
+            // ---- START DEBUG ----
+            std::cout << "      DEBUG Eval RHS for " << m_state_vars[i] << " using expr: " << m_rhs_equations[i]
+                      << std::endl;
+            // ---- END DEBUG ----
             try {
                 dxdt[i] = m_rhs_equations[i].evaluate(m_value_map);
+                // ---- START DEBUG ----
+                std::cout << "        DEBUG Result d(" << m_state_vars[i] << ")/dt = " << dxdt[i] << " (at t=" << t
+                          << ")" << std::endl;
+                if (std::isnan(dxdt[i]) || std::isinf(dxdt[i])) {
+                    std::cerr << "        WARNING: NaN/Inf produced for d(" << m_state_vars[i] << ")/dt at t=" << t
+                              << std::endl;
+                }
+                // ---- END DEBUG ----
             } catch (const std::exception &e) {
                 std::stringstream ss;
                 ss << "Error evaluating RHS for variable '" << m_state_vars[i].name << "': " << e.what();
@@ -247,6 +269,23 @@ class ODESystem {
     const std::vector<Variable> &get_state_variables() const { return m_state_vars; }
     const std::vector<Variable> &get_parameter_variables() const { return m_param_vars; }
     const std::map<std::string, RationalFunction<Coeff>> &get_observables() const { return m_observables; }
+
+    // --- Setters for simulation ---
+    void set_parameter_values(const std::map<Variable, Coeff> &param_values) {
+        m_current_parameters.clear();
+        for (const auto &pv_def : m_param_vars) { // Iterate defined param variables to ensure only known params are set
+            auto it = param_values.find(pv_def);
+            if (it != param_values.end()) {
+                m_current_parameters[pv_def] = it->second;
+            } else {
+                // Optional: Throw error or warning if a defined parameter is missing a value
+                // For now, allow it, maybe it's fixed or unused in a specific RHS.
+                // Or, require all defined params to have values:
+                // throw std::invalid_argument("Missing value for defined parameter: " + pv_def.name);
+            }
+        }
+        // Optionally, check for extra parameters in param_values not in m_param_vars
+    }
 };
 
 #endif // ODE_SYSTEM_HPP
