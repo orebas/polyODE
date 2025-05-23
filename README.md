@@ -1,121 +1,192 @@
 # PolyODE: Polynomial ODE System Toolkit
 
-This repository contains C++ tools for defining, simulating, and analyzing systems of ordinary differential equations (ODEs) described by polynomials or rational functions.
+A C++ library for analyzing polynomial and rational function systems of ordinary differential equations (ODEs), with support for parameter estimation, identifiability analysis, and algebraic solving.
+
+## Quick Start
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd polyODE
+
+# Build (requires vcpkg - see setup below if you don't have it)
+./build.sh
+
+# Run examples
+./build/lotka_volterra
+./build/parameter_estimation_example
+```
 
 ## Prerequisites
 
-Before building, ensure you have the following installed:
+1. **C++17 compiler** (GCC 7+, Clang 6+, or MSVC 2019+)
+2. **CMake 3.15+**
+3. **Git**
+4. **vcpkg** (for dependency management)
 
-1.  **CMake**: Version 3.15 or higher. ([Download CMake](https://cmake.org/download/))
-2.  **A C++17 Compiler**:
-    *   **Windows**: Visual Studio 2019 or later (with C++ workload).
-    *   **macOS**: Xcode Command Line Tools (install with `xcode-select --install`).
-    *   **Linux**: GCC 7 or later, or Clang 6 or later. Install via your package manager (e.g., `sudo apt update && sudo apt install build-essential g++` on Debian/Ubuntu).
-3.  **Git**: Required for cloning this repository and for vcpkg. ([Download Git](https://git-scm.com/downloads))
+## Dependencies
 
-## Building with vcpkg (Recommended)
+This project depends on several libraries that are automatically managed via vcpkg:
+- **FLINT 3.2.1** - Fast Library for Number Theory (custom overlay)
+- **msolve 0.7.5** - Multivariate polynomial system solver (custom overlay) 
+- **Ceres Solver** - Non-linear optimization
+- **Boost** - Various utilities (odeint, filesystem, etc.)
+- **Google Test** - Testing framework
 
-This project uses [vcpkg](https://github.com/microsoft/vcpkg) for dependency management (Boost, Ceres Solver, Google Test).
+## Building
 
-1.  **Clone the Repository**:
-    ```bash
-    git clone <your-repository-url> # Replace with your repo URL
-    cd polyODE # Or your repository's directory name
-    ```
+### Option 1: Using the Build Script (Recommended)
 
-2.  **Install vcpkg**:
-    *   Clone the vcpkg repository (it's recommended to install it outside your project directory, e.g., in your home directory or `C:\tools`).
-      ```bash
-      git clone https://github.com/microsoft/vcpkg.git
-      cd vcpkg
-      ```
-    *   Bootstrap vcpkg:
-      *   Windows: `.\bootstrap-vcpkg.bat`
-      *   Linux/macOS: `./bootstrap-vcpkg.sh`
-    *   *(Optional but Recommended)* Integrate with user-wide CMake (makes finding vcpkg easier):
-      *   Windows: `.\vcpkg integrate install`
-      *   Linux/macOS: `./vcpkg integrate install`
+```bash
+# Make sure vcpkg is installed (see vcpkg setup below)
+./build.sh
+```
 
-3.  **Configure with CMake**:
-    *   Create a build directory:
-      ```bash
-      cd ../polyODE # Go back to your project directory
-      mkdir build
-      cd build
-      ```
-    *   Run CMake, telling it where to find vcpkg's toolchain file. **Replace `<path/to/vcpkg>` with the actual path where you cloned vcpkg.**
-      ```bash
-      cmake .. -DCMAKE_TOOLCHAIN_FILE=<path/to/vcpkg>/scripts/buildsystems/vcpkg.cmake
-      ```
-      *   *Note*: If you ran `vcpkg integrate install`, CMake *might* find vcpkg automatically, and you *might* be able to omit the `-DCMAKE_TOOLCHAIN_FILE=...` part, but explicitly specifying it is more reliable.
-      *   *Optional CMake Options*:
-          *   `-DCMAKE_BUILD_TYPE=Release` (or `Debug`)
-          *   `-DENABLE_SANITIZERS=OFF` (to disable ASan/UBSan, ON by default)
+The build script assumes vcpkg is installed at `~/vcpkg`. If it's elsewhere, edit `build.sh` to point to your vcpkg installation.
 
-4.  **Build**:
-    *   Use CMake's build command (works cross-platform):
-      ```bash
-      cmake --build .
-      ```
-    *   Alternatively, use the native build tools (e.g., `make` on Linux/macOS, or open the generated `.sln` file in Visual Studio on Windows).
+### Option 2: Manual CMake Build
 
-5.  **Run Examples/Tests**:
-    *   Executables will be located in the `build` directory (or subdirectories like `build/Debug` depending on configuration).
-    *   Run an example: `./lotka_volterra_example` (or `.\Debug\lotka_volterra_example.exe` on Windows).
-    *   Run tests using CTest: `ctest`
+```bash
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build .
+```
 
-This setup ensures that all required libraries (Boost, Ceres, GTest) are automatically downloaded, built, and found by CMake during the configuration step.
+## vcpkg Setup
+
+If you don't have vcpkg installed:
+
+```bash
+# Install vcpkg (recommended location: ~/vcpkg)
+git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
+cd ~/vcpkg
+./bootstrap-vcpkg.sh  # or .\bootstrap-vcpkg.bat on Windows
+
+# Optional: integrate with CMake globally
+./vcpkg integrate install
+```
+
+## Custom Overlay Ports
+
+This project includes custom vcpkg overlay ports for libraries not in the main vcpkg registry:
+
+- `vcpkg-overlay-ports/flint/` - FLINT 3.2.1 with fixes for proper header installation
+- `ports/msolve/` - msolve 0.7.5 with FLINT 3.x compatibility
+
+These are automatically used when building via vcpkg.
+
+## Project Structure
+
+```
+polyODE/
+├── include/           # Header files
+├── src/              # Source files  
+├── examples/         # Example programs
+├── tests/            # Unit tests
+├── ports/            # Custom vcpkg ports (msolve)
+├── vcpkg-overlay-ports/  # More custom vcpkg ports (FLINT)
+├── scripts/          # Utility scripts
+├── build.sh          # Build script
+├── vcpkg.json        # vcpkg manifest
+└── CMakeLists.txt    # Main CMake configuration
+```
 
 ## Testing
 
-The project uses Google Test for unit and integration testing.
+```bash
+# Build and run all tests
+cd build
+ctest
 
-### Running Tests
+# Run specific test
+./polynomial_test
+./parameter_estimation_test
 
-1.  Configure the build using CMake (from a `build` directory):
-    ```bash
-    cd build
-    cmake ..
-    ```
-2.  Build the tests:
-    ```bash
-    # Using Ninja (if configured)
-    ninja
-    # Or using Make
-    make -j
-    ```
-3.  Run all tests using CTest:
-    ```bash
-    # From the build directory
-    ctest
-    # Or via the build tool
-    ninja test 
-    # make test
-    ```
-4.  Run a specific test executable:
-    ```bash
-    # From the build directory
-    ./<test_executable_name> --gtest_filter=TestSuiteName.TestCaseName
-    # e.g., ./polynomial_test --gtest_filter=PolynomialTest.Arithmetic
-    ```
+# Run with verbose output
+ctest --verbose
+```
 
-### Adding New Tests
+## Examples
 
-1.  Create a new test source file in the `tests/` directory (e.g., `tests/my_feature_test.cpp`). Ensure the filename follows the pattern `<target_name>_test.cpp`.
-2.  Include necessary headers and `<gtest/gtest.h>`.
-3.  Write test cases using Google Test macros (e.g., `TEST`, `TEST_F`, `EXPECT_EQ`, `ASSERT_TRUE`).
-4.  Add **one line** to the main `CMakeLists.txt` file in the "Test Targets" section:
-    ```cmake
-    # Add each test using the helper function
-    # ... existing add_polyode_test calls ...
-    add_polyode_test(my_feature_test) # Add this line (use the target name without _test.cpp)
-    ```
-5.  **If your test needs extra libraries** not already linked by `polyode_lib` (like Ceres, nlohmann_json, etc.):
-    *   Ensure the dependency is found (e.g., `find_package(MyLib REQUIRED)`).
-    *   Add a line *after* the `add_polyode_test` call to link it:
-        ```cmake
-        add_polyode_test(my_feature_test)
-        # Example: Link nlohmann_json if needed by my_feature_test.cpp
-        target_link_libraries(my_feature_test PRIVATE nlohmann_json::nlohmann_json)
-        ```
-6.  Re-run CMake configuration and build. 
+The `examples/` directory contains sample programs demonstrating key functionality:
+
+- `basic_estimation.cpp` - Basic parameter estimation
+- `lotka_volterra.cpp` - Classic predator-prey model
+- `identifiability_test.cpp` - Parameter identifiability analysis
+- `holling_test.cpp` - Holling-type functional response
+
+## Troubleshooting
+
+### Common Issues
+
+1. **FLINT headers not found**: Make sure you're using the custom overlay ports included in this repo
+2. **msolve build fails**: Ensure FLINT built successfully first
+3. **vcpkg manifest errors**: Make sure vcpkg is up to date (`git pull` in vcpkg directory)
+
+### Build Script Fails
+
+If `./build.sh` fails, try:
+
+```bash
+# Clean and rebuild
+rm -rf build
+./build.sh
+
+# Or build manually with more verbose output
+mkdir build && cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_VERBOSE_MAKEFILE=ON
+make VERBOSE=1
+```
+
+### vcpkg Issues
+
+```bash
+# Update vcpkg
+cd ~/vcpkg
+git pull
+./bootstrap-vcpkg.sh
+
+# Clear vcpkg cache if needed
+./vcpkg remove --outdated
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass: `ctest`
+5. Submit a pull request
+
+## License
+
+[Your license here]
+
+## Citations
+
+If you use this software in academic work, please cite:
+
+```
+[Your citation format]
+```
+
+## Development Notes
+
+### Adding New Dependencies
+
+If you need to add new dependencies:
+
+1. Add to `vcpkg.json` if available in vcpkg registry
+2. Create custom overlay port in `ports/` or `vcpkg-overlay-ports/` if not available
+3. Update `CMakeLists.txt` to find and link the package
+4. Update this README's dependency list
+
+### Custom Overlay Ports
+
+The FLINT and msolve overlay ports include specific fixes:
+- FLINT: Copies generated headers (`flint.h`, `flint-config.h`) and fixes pkg-config paths
+- msolve: Sets proper environment variables for FLINT discovery
+
+These fixes are necessary for FLINT 3.x compatibility and should be preserved when updating.

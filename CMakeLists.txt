@@ -65,11 +65,16 @@ include_directories(include)
 find_package(Boost REQUIRED) # vcpkg handles finding this via toolchain
 find_package(Ceres REQUIRED) # vcpkg handles finding this via toolchain
 find_package(PkgConfig REQUIRED) # Needed to find msolve via its .pc file
+
+# Set PKG_CONFIG_PATH to include vcpkg installed packages
+if(DEFINED VCPKG_INSTALLED_DIR)
+    set(ENV{PKG_CONFIG_PATH} "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+endif()
+
 pkg_check_modules(MSOLVE REQUIRED IMPORTED_TARGET msolve) # vcpkg ensures msolve.pc is findable
 
 # Find FLINT library (used by univariate_solver_flint) - using pkg-config with vcpkg FLINT
-pkg_check_modules(FLINT REQUIRED IMPORTED_TARGET flint) # REINSTATED for vcpkg FLINT
-# find_package(FLINT REQUIRED) # REMOVED - vcpkg FLINT might not provide FLINTConfig.cmake
+pkg_check_modules(FLINT REQUIRED IMPORTED_TARGET flint)
 
 # GTest will be found here now instead of FetchContent
 # find_package(GTest REQUIRED) # Moved lower, near testing section

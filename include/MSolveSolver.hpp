@@ -1,6 +1,10 @@
 #ifndef MSOLVE_SOLVER_HPP
 #define MSOLVE_SOLVER_HPP
 
+// For FLINT types used in declarations
+#include <flint/acb.h>   // For acb_t
+#include <flint/flint.h> // For slong
+
 // Do not include msolve.h directly, as we interact via CLI
 // #include "msolve/msolve/msolve.h"
 
@@ -51,6 +55,11 @@ class MSolveSolver : public PolynomialSolver {
     // Helper to evaluate a polynomial (coeffs given as strings) at a complex point t
     static std::complex<double> evaluate_poly_at_complex(const std::vector<std::string> &coeffs_str,
                                                          std::complex<double> t);
+    // New declaration for the acb_t version
+    static void evaluate_poly_at_complex_acb(acb_t result_param,
+                                             const std::vector<std::string> &coeffs_str,
+                                             const acb_t t_acb_val,
+                                             slong prec);
 };
 
 } // namespace poly_ode

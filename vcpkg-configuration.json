@@ -5,6 +5,7 @@
         "repository": "https://github.com/microsoft/vcpkg"
     },
     "overlay-ports": [
-        "./ports"
+        "./ports",
+        "./vcpkg-overlay-ports"
     ]
 }

@@ -1,0 +1,12 @@
+The FLINT library (version 3.2.1) has been installed.
+You can find and link FLINT in your CMake project using:
+
+find_package(FLINT CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE FLINT::flint)
+
+# Note: FLINT 3.x includes ARB.
+# The headers are typically found under <prefix>/include/flint/...
+# For example:
+# #include <flint/flint.h>
+# #include <flint/arb.h>
+# #include <flint/acb.h> 

@@ -1,11 +1,17 @@
-# Build directories
+# Build directories and outputs
 build/
-build2/
-build-debug/
+build-*/
 cmake-build*/
-inspo/
-repomix*
-# Compiled object files
+out/
+_deps/
+Testing/
+
+# vcpkg generated files (keep overlay ports but ignore vcpkg artifacts)
+vcpkg_installed/
+.vcpkg-root
+vcpkg-manifest-install.log
+
+# Compiled object files and libraries
 *.o
 *.obj
 *.so
@@ -13,19 +19,61 @@ repomix*
 *.dll
 *.lib
 *.exe
+*.pdb
+*.ilk
+*.exp
 
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/
+CMakeUserPresets.json
 compile_commands.json
 .cache/
+install_manifest.txt
 
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.ccls-cache/
+.clangd/
 
-# Generated reports
+# Generated documentation
+html/
+latex/
+Doxyfile
+
+# Test outputs and reports
 clang-tidy-report.txt
+const-fixes-report.txt
+diffs.txt
+*.gcov
+*.gcno
+*.gcda
+coverage/
 
-# macOS
+# Package manager artifacts
+conan*/
+_build/
+find-modules/
+
+# Temporary and backup files
+*.tmp
+*.bak
+*.orig
+*.log
+
+# OS specific
 .DS_Store
+Thumbs.db
+*.stackdump
+
+# Personal/local files
+inspo/
+repomix*
+notes.md
+todo.txt
+.env
+.local

@@ -1,0 +1,13 @@
+{
+    "name": "flint",
+    "version-string": "3.2.1",
+    "description": "FLINT: Fast Library for Number Theory. This overlay port provides version 3.2.1.",
+    "homepage": "https://flintlib.org/",
+    "license": "LGPL-2.1-or-later",
+    "dependencies": [
+        "gmp",
+        "mpfr",
+        "vcpkg-cmake",
+        "vcpkg-cmake-config"
+    ]
+}

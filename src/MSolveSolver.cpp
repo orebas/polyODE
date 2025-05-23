@@ -1,8 +1,10 @@
 #include "MSolveSolver.hpp" // For class definition and includes like polynomial_solver.hpp, msolve/msolve/msolve.h (for types)
 
 // Attempt to prioritize vcpkg flint includes for this translation unit
+#include <flint/acb.h>      // For acb_t and acb_realref/imagref (added for explicitness)
 #include <flint/acb_poly.h> // For acb_poly_t (expecting vcpkg path)
 #include <flint/arb.h>      // For arb_t (expecting vcpkg path)
+#include <flint/arf.h>      // For arf_get_d (added for explicitness)
 #include <flint/flint.h>    // General flint utilities (expecting vcpkg path)
 #include <flint/fmpq.h>     // For Flint fmpq_t operations (expecting vcpkg path)
 #include <flint/fmpz.h>     // Often needed with fmpq
@@ -518,7 +520,7 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
         std::vector<std::string> w_coeffs_str;
         for (const auto &coeff_item : lw_coeffs_json) {
             if (coeff_item.is_number()) {
-                w_coeffs_str.push_back(std::to_string(coeff_item.get<double>()));
+                w_coeffs_str.push_back(coeff_item.dump()); // Use dump() for numbers
             } else if (coeff_item.is_string()) {
                 w_coeffs_str.push_back(coeff_item.get<std::string>());
             } else {
@@ -544,7 +546,7 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
         std::vector<std::string> wp_coeffs_str;
         for (const auto &coeff_item : lwp_coeffs_json) {
             if (coeff_item.is_number()) {
-                wp_coeffs_str.push_back(std::to_string(coeff_item.get<double>()));
+                wp_coeffs_str.push_back(coeff_item.dump()); // Use dump() for numbers
             } else if (coeff_item.is_string()) {
                 wp_coeffs_str.push_back(coeff_item.get<std::string>());
             } else {
@@ -580,18 +582,20 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
                 v_polynomials_list.reserve(params_list_struct_ptr->size());
                 for (size_t i = 0; i < params_list_struct_ptr->size(); ++i) {
                     const auto &v_poly_data_json = (*params_list_struct_ptr)[i];
+                    // Refined structure check and parsing for v_k(t)
                     if (!v_poly_data_json.is_array() || v_poly_data_json.size() != 2 ||
                         !v_poly_data_json[0].is_array() || v_poly_data_json[0].size() != 2 ||
-                        !v_poly_data_json[0][1].is_array() || !v_poly_data_json[1].is_number()) {
-                        std::cerr << "[MSolveSolver] Error: Invalid structure for parametrizing polynomial v_" << i
+                        !v_poly_data_json[0][1].is_array()) {
+                        std::cerr << "[MSolveSolver] Error: Invalid structure for numerator part of v_" << i
                                   << "(t) in JSON." << std::endl;
                         return {};
                     }
+
                     const auto &numerator_coeffs_json = v_poly_data_json[0][1];
                     std::vector<std::string> current_v_num_coeffs_str;
                     for (const auto &coeff_item : numerator_coeffs_json) {
                         if (coeff_item.is_number()) {
-                            current_v_num_coeffs_str.push_back(std::to_string(coeff_item.get<double>()));
+                            current_v_num_coeffs_str.push_back(coeff_item.dump()); // Use dump() for numbers
                         } else if (coeff_item.is_string()) {
                             current_v_num_coeffs_str.push_back(coeff_item.get<std::string>());
                         } else {
@@ -600,8 +604,25 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
                             return {};
                         }
                     }
-                    double denominator = v_poly_data_json[1].get<double>();
-                    v_polynomials_list.push_back({ current_v_num_coeffs_str, denominator });
+
+                    const auto &den_item_for_vk = v_poly_data_json[1];
+                    double current_denominator_val;
+                    if (den_item_for_vk.is_number()) {
+                        current_denominator_val = den_item_for_vk.get<double>();
+                    } else if (den_item_for_vk.is_string()) {
+                        try {
+                            current_denominator_val = std::stod(den_item_for_vk.get<std::string>());
+                        } catch (const std::exception &e) {
+                            std::cerr << "[MSolveSolver] Error: Denominator string for v_" << i
+                                      << "(t) failed to parse: " << e.what() << std::endl;
+                            return {};
+                        }
+                    } else {
+                        std::cerr << "[MSolveSolver] Error: Denominator for v_" << i
+                                  << "(t) is neither number nor string in JSON." << std::endl;
+                        return {};
+                    }
+                    v_polynomials_list.push_back({ current_v_num_coeffs_str, current_denominator_val });
                 }
             }
         } else {
@@ -617,10 +638,11 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
             const auto &v_poly_entry = v_polynomials_list[i];
             std::cout << "    v_poly_" << i << ": NumCoeffs=[ ";
             for (size_t j = 0; j < v_poly_entry.numerator_coeffs_str.size(); ++j) {
-                std::cout << v_poly_entry.numerator_coeffs_str[j]
-                          << (j == v_poly_entry.numerator_coeffs_str.size() - 1 ? "" : ", ");
+                std::cout << "'" << v_poly_entry.numerator_coeffs_str[j] << "'"
+                          << (j < v_poly_entry.numerator_coeffs_str.size() - 1 ? ", " : "");
             }
-            std::cout << " ], Denominator=" << v_poly_entry.denominator_val << std::endl;
+            std::cout << "]" << std::endl;
+            std::cout << "          Denominator=" << v_poly_entry.denominator_val << std::endl;
         }
 
         // Validate the size of v_polynomials_list
@@ -663,126 +685,139 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
 
         // 2. For each root theta_j of w(t):
         for (size_t root_idx = 0; root_idx < w_roots.size(); ++root_idx) {
-            const auto &theta_j = w_roots[root_idx];
-            std::cout << "    Processing root theta_" << root_idx << " = " << theta_j << std::endl;
+            const auto &theta_j_double = w_roots[root_idx]; // This is std::complex<double>
+            std::cout << "    Processing root theta_" << root_idx << " = " << theta_j_double << std::endl;
 
-            // Evaluate w'(theta_j)
-            std::complex<double> w_prime_at_theta_j;
+            slong eval_prec = 256; // Precision for these evaluations
+            acb_t theta_j_acb, w_prime_eval_acb, v_num_eval_acb, den_acb, term1_acb, final_val_acb;
+            arb_t temp_arb_real, temp_arb_imag;
+
+            acb_init(theta_j_acb);
+            acb_init(w_prime_eval_acb);
+            acb_init(v_num_eval_acb);
+            acb_init(den_acb);
+            acb_init(term1_acb);
+            acb_init(final_val_acb);
+            arb_init(temp_arb_real);
+            arb_init(temp_arb_imag);
+
+            // Convert theta_j_double to theta_j_acb
+            arb_set_d(temp_arb_real, theta_j_double.real());
+            arb_set_d(temp_arb_imag, theta_j_double.imag());
+            acb_set_arb_arb(theta_j_acb, temp_arb_real, temp_arb_imag);
+
             try {
-                w_prime_at_theta_j = MSolveSolver::evaluate_poly_at_complex(wp_coeffs_str, theta_j);
+                MSolveSolver::evaluate_poly_at_complex_acb(w_prime_eval_acb, wp_coeffs_str, theta_j_acb, eval_prec);
             } catch (const std::exception &e) {
-                std::cerr << "[MSolveSolver] Error evaluating w'(theta_" << root_idx << "): " << e.what() << std::endl;
-                continue; // Skip this root if w' evaluation fails
+                std::cerr << "[MSolveSolver] Error evaluating w'(theta_" << root_idx << ") using acb: " << e.what()
+                          << std::endl;
+                acb_clear(theta_j_acb);
+                acb_clear(w_prime_eval_acb);
+                acb_clear(v_num_eval_acb);
+                acb_clear(den_acb);
+                acb_clear(term1_acb);
+                acb_clear(final_val_acb);
+                arb_clear(temp_arb_real);
+                arb_clear(temp_arb_imag);
+                continue;
             }
-            std::cout << "      w'(theta_" << root_idx << ") = " << w_prime_at_theta_j << std::endl;
+            std::cout << "      w'(theta_" << root_idx << ")_acb = ["
+                      << arf_get_d(arb_midref(acb_realref(w_prime_eval_acb)), ARF_RND_NEAR) << ", "
+                      << arf_get_d(arb_midref(acb_imagref(w_prime_eval_acb)), ARF_RND_NEAR) << "]" << std::endl;
 
-            // Handle case where w'(theta_j) is zero (or very close to zero)
-            double zero_tolerance = 1e-12; // Tolerance for checking against zero
-            if (std::abs(w_prime_at_theta_j.real()) < zero_tolerance &&
-                std::abs(w_prime_at_theta_j.imag()) < zero_tolerance) {
+            if (acb_is_zero(w_prime_eval_acb) || acb_contains_zero(w_prime_eval_acb)) {
                 std::cerr << "[MSolveSolver] Warning: w'(theta_" << root_idx
-                          << ") is close to zero. Skipping this root to avoid division by zero." << std::endl;
+                          << ")_acb is zero or contains zero. Skipping this root." << std::endl;
+                acb_clear(theta_j_acb);
+                acb_clear(w_prime_eval_acb);
+                acb_clear(v_num_eval_acb);
+                acb_clear(den_acb);
+                acb_clear(term1_acb);
+                acb_clear(final_val_acb);
+                arb_clear(temp_arb_real);
+                arb_clear(temp_arb_imag);
                 continue;
             }
 
             PolynomialSolutionMap current_solution_map;
             bool reconstruction_ok_for_this_root = true;
-
-            // Determine which variable in stored_poly_vars is 't'
-            // As per msolve-tutorial, the last variable in 'vars' (our stored_poly_vars) is 't'
             std::string t_var_name_msolve;
             if (!stored_poly_vars.empty()) {
                 t_var_name_msolve = stored_poly_vars.back();
             } else {
-                std::cerr << "[MSolveSolver] Error: stored_poly_vars is empty, cannot determine 't' for reconstruction."
-                          << std::endl;
-                reconstruction_ok_for_this_root = false; // Should not happen if w_roots is not empty
+                std::cerr << "[MSolveSolver] Error: stored_poly_vars is empty for reconstruction." << std::endl;
+                reconstruction_ok_for_this_root = false;
             }
 
-            std::map<std::string, std::complex<double>> msolve_var_values; // Temp store for values of msolve's vars
+            std::map<std::string, std::complex<double>> msolve_var_values_double;
 
-            // Assign theta_j to msolve's 't' variable
             if (reconstruction_ok_for_this_root) {
-                msolve_var_values[t_var_name_msolve] = theta_j;
-                std::cout << "        Assigned msolve var '" << t_var_name_msolve << "' (t) = " << theta_j << std::endl;
+                msolve_var_values_double[t_var_name_msolve] = theta_j_double;
+                std::cout << "        Assigned msolve var '" << t_var_name_msolve << "' (t) = " << theta_j_double
+                          << std::endl;
             }
 
-            // Reconstruct the values for the other original variables using v_i(t) = Num_i(t) / Den_i
-            // The formula from msolve-tutorial p.14, for x_k(theta_j) = v_k(theta_j) / w'(theta_j)
-            // where v_k(t) = Numerator_k(t) / Denominator_k
-            // So, x_k(theta_j) = (Numerator_k(theta_j) / Denominator_k) / w'(theta_j)
-
-            // num_orig_vars_for_params was for dim_flag == 1, for dim_flag == 0, we iterate over v_polynomials_list
-            for (size_t var_idx = 0; var_idx < v_polynomials_list.size(); ++var_idx) { // Corrected loop limit
-                const std::string &msolve_var_s =
-                  stored_poly_vars[var_idx]; // Assumes v_polynomials align with first N-1 stored_poly_vars
+            for (size_t var_idx = 0; var_idx < v_polynomials_list.size(); ++var_idx) {
+                if (!reconstruction_ok_for_this_root) break;
+                const std::string &msolve_var_s = stored_poly_vars[var_idx];
                 const auto &v_poly_entry = v_polynomials_list[var_idx];
 
-                // Numerator_i(theta_j) / ( Denominator_i * w'(theta_j) )
-                std::complex<double> v_num_at_theta_j;
                 try {
-                    v_num_at_theta_j =
-                      MSolveSolver::evaluate_poly_at_complex(v_poly_entry.numerator_coeffs_str, theta_j);
+                    MSolveSolver::evaluate_poly_at_complex_acb(
+                      v_num_eval_acb, v_poly_entry.numerator_coeffs_str, theta_j_acb, eval_prec);
                 } catch (const std::exception &e) {
                     std::cerr << "[MSolveSolver] Error evaluating numerator of v_" << var_idx << "(theta_" << root_idx
-                              << "): " << e.what() << std::endl;
+                              << ") using acb: " << e.what() << std::endl;
                     reconstruction_ok_for_this_root = false;
                     break;
                 }
 
-                if (std::abs(v_poly_entry.denominator_val) < 1e-12) {
+                // Convert double denominator to acb_t den_acb
+                arb_set_d(acb_realref(den_acb), v_poly_entry.denominator_val); // Corrected: acb_realref
+                arb_zero(acb_imagref(den_acb));                                // Corrected: acb_imagref
+
+                if (acb_is_zero(den_acb)) {
                     std::cerr << "[MSolveSolver] Error: Denominator for v_" << var_idx << " is zero." << std::endl;
                     reconstruction_ok_for_this_root = false;
                     break;
                 }
 
-                // Detailed calculation for debugging
-                // HYPOTHESIS: Negate the v_k(t) term based on empirical results with msinp3.txt
-                std::complex<double> num_div_den = -(v_num_at_theta_j / v_poly_entry.denominator_val); // ADDED NEGATION
-                std::complex<double> final_calc_val = num_div_den / w_prime_at_theta_j;
+                acb_div(term1_acb, v_num_eval_acb, den_acb, eval_prec);
+                acb_neg(term1_acb, term1_acb);
+                acb_div(final_val_acb, term1_acb, w_prime_eval_acb, eval_prec);
 
-                std::cout << "        DEBUG_RECON_DETAIL for '" << msolve_var_s << "':" << std::endl;
-                std::cout << "          v_poly.num_coeffs_str: [";
-                for (size_t k = 0; k < v_poly_entry.numerator_coeffs_str.size(); ++k) {
-                    std::cout << "'" << v_poly_entry.numerator_coeffs_str[k] << "'"
-                              << (k < v_poly_entry.numerator_coeffs_str.size() - 1 ? ", " : "");
-                }
-                std::cout << "]" << std::endl;
-                std::cout << "          theta_j: " << theta_j << std::endl;
-                std::cout << "          v_num_evaluated (v_num_at_theta_j): " << v_num_at_theta_j << std::endl;
-                std::cout << "          v_poly.den_val (denominator_val): " << v_poly_entry.denominator_val
-                          << std::endl;
-                std::cout << "          num_div_den (-(v_num_at_theta_j / denominator_val)): " << num_div_den
-                          << std::endl; // Note negation in comment
-                std::cout << "          w_prime_at_theta_j: " << w_prime_at_theta_j << std::endl;
-                std::cout << "          FINAL_CALCULATED_VALUE (num_div_den / w_prime_at_theta_j): " << final_calc_val
-                          << std::endl;
+                std::complex<double> final_calc_val_double(
+                  arf_get_d(arb_midref(acb_realref(final_val_acb)), ARF_RND_NEAR),
+                  arf_get_d(arb_midref(acb_imagref(final_val_acb)), ARF_RND_NEAR));
 
-                msolve_var_values[msolve_var_s] = final_calc_val;
-                std::cout << "        Reconstructed msolve var '" << msolve_var_s << "' = " << final_calc_val
+                msolve_var_values_double[msolve_var_s] = final_calc_val_double;
+                std::cout << "        Reconstructed msolve var '" << msolve_var_s << "' = " << final_calc_val_double
                           << std::endl;
             }
 
-            // Map reconstructed msolve_var_values to the original system.unknowns
+            acb_clear(theta_j_acb);
+            acb_clear(w_prime_eval_acb);
+            acb_clear(v_num_eval_acb);
+            acb_clear(den_acb);
+            acb_clear(term1_acb);
+            acb_clear(final_val_acb);
+            arb_clear(temp_arb_real);
+            arb_clear(temp_arb_imag);
+
             if (reconstruction_ok_for_this_root) {
                 for (const auto &unknown_var : system.unknowns) {
-                    // Find the msolve name corresponding to this system.unknown (Variable object)
                     auto map_it = var_to_msolve_name_map.find(unknown_var);
                     if (map_it == var_to_msolve_name_map.end()) {
                         std::cerr << "[MSolveSolver] Error: Could not find system unknown '" << unknown_var.name
-                                  << "' in var_to_msolve_name_map." << std::endl;
+                                  << "' in var_to_msolve_name_map for solution reconstruction." << std::endl;
                         reconstruction_ok_for_this_root = false;
                         break;
                     }
                     const std::string &msolve_name_for_system_var = map_it->second;
-
-                    // Now find this msolve_name in our reconstructed values
-                    auto value_it = msolve_var_values.find(msolve_name_for_system_var);
-                    if (value_it != msolve_var_values.end()) {
+                    auto value_it = msolve_var_values_double.find(msolve_name_for_system_var);
+                    if (value_it != msolve_var_values_double.end()) {
                         current_solution_map[unknown_var] = value_it->second;
                     } else {
-                        // This should ideally not happen if msolve_var_values contains all msolve names
-                        // including the one that became 't'.
                         std::cerr << "[MSolveSolver] Error: Could not find reconstructed value for msolve var '"
                                   << msolve_name_for_system_var << "' (derived from system unknown '"
                                   << unknown_var.name << "')." << std::endl;
@@ -896,19 +931,96 @@ MSolveSolver::string_coeff_to_double(const std::string &s_coeff) {
     }
 }
 
-// Helper function to evaluate a polynomial (coeffs given as strings) at a complex point t
+// Helper function to evaluate a polynomial (coeffs given as strings) at a complex point t_acb_val
 // Polynomial is c0 + c1*t + c2*t^2 + ...
-std::complex<double>
-MSolveSolver::evaluate_poly_at_complex(const std::vector<std::string> &coeffs_str, std::complex<double> t) {
-    std::complex<double> result = { 0.0, 0.0 };
-    std::complex<double> t_power = { 1.0, 0.0 }; // Starts at t^0
+// Result is stored in result_param (acb_t)
+void
+MSolveSolver::evaluate_poly_at_complex_acb(acb_t result_param, // Output parameter
+                                           const std::vector<std::string> &coeffs_str,
+                                           const acb_t t_acb_val, // Input t is already acb
+                                           slong prec) {
+
+    acb_t term_acb, coeff_acb, t_power_acb;
+    arb_t coeff_arb_parsed; // For parsing string coefficient
+
+    acb_init(term_acb);
+    acb_init(coeff_acb);
+    acb_init(t_power_acb);
+    arb_init(coeff_arb_parsed);
+
+    acb_zero(result_param); // Initialize result to 0
+    acb_one(t_power_acb);   // Starts at t^0 = 1
 
     for (const std::string &s_coeff : coeffs_str) {
-        double coeff_val = MSolveSolver::string_coeff_to_double(s_coeff); // Call static method
-        result += coeff_val * t_power;
-        t_power *= t; // Next power of t
+        // Parse string coefficient s_coeff to arb_t coeff_arb_parsed
+        if (s_coeff.find('/') != std::string::npos) {
+            fmpq_t q_coeff;
+            fmpq_init(q_coeff);
+            if (fmpq_set_str(q_coeff, s_coeff.c_str(), 10) == 0) {
+                arb_set_fmpq(coeff_arb_parsed, q_coeff, prec);
+            } else {
+                fmpq_clear(q_coeff);
+                arb_clear(coeff_arb_parsed);
+                acb_clear(term_acb);
+                acb_clear(coeff_acb);
+                acb_clear(t_power_acb);
+                // No need to clear result_param as it's an out-param, caller handles main resources
+                throw std::runtime_error("Invalid fractional coefficient for evaluate_poly_acb: " + s_coeff);
+            }
+            fmpq_clear(q_coeff);
+        } else {
+            if (arb_set_str(coeff_arb_parsed, s_coeff.c_str(), prec) != 0) {
+                arb_clear(coeff_arb_parsed);
+                acb_clear(term_acb);
+                acb_clear(coeff_acb);
+                acb_clear(t_power_acb);
+                throw std::runtime_error("Invalid decimal/integer coefficient for evaluate_poly_acb: " + s_coeff);
+            }
+        }
+
+        acb_set_arb(coeff_acb, coeff_arb_parsed); // Convert arb_t coefficient to acb_t (real part)
+
+        acb_mul(term_acb, coeff_acb, t_power_acb, prec);     // term = coeff * t_power
+        acb_add(result_param, result_param, term_acb, prec); // result += term
+
+        acb_mul(t_power_acb, t_power_acb, t_acb_val, prec); // Next power of t
     }
-    return result;
+
+    arb_clear(coeff_arb_parsed);
+    acb_clear(term_acb);
+    acb_clear(coeff_acb);
+    acb_clear(t_power_acb);
+    // result_param is an output, not cleared here.
+    // t_acb_val is const input, not cleared here.
+}
+
+// Keep the old std::complex<double> returning version for now if it's used elsewhere,
+// or mark as deprecated/remove if all callers switch to the acb_t version for calculations.
+// For now, we assume the main solve loop will be changed to use the acb_t output version.
+std::complex<double>
+MSolveSolver::evaluate_poly_at_complex(const std::vector<std::string> &coeffs_str, std::complex<double> t_val) {
+    slong prec = 256; // Keep increased precision for this version too if it's still used
+    acb_t res_acb_internal, t_acb_internal_val;
+
+    acb_init(res_acb_internal);
+    acb_init(t_acb_internal_val);
+    arb_t temp_arb_real, temp_arb_imag;
+    arb_init(temp_arb_real);
+    arb_init(temp_arb_imag);
+    arb_set_d(temp_arb_real, t_val.real());
+    arb_set_d(temp_arb_imag, t_val.imag());
+    acb_set_arb_arb(t_acb_internal_val, temp_arb_real, temp_arb_imag);
+    arb_clear(temp_arb_real);
+    arb_clear(temp_arb_imag);
+
+    evaluate_poly_at_complex_acb(res_acb_internal, coeffs_str, t_acb_internal_val, prec);
+
+    double real_part = arf_get_d(arb_midref(acb_realref(res_acb_internal)), ARF_RND_NEAR);
+    double imag_part = arf_get_d(arb_midref(acb_imagref(res_acb_internal)), ARF_RND_NEAR);
+
+    acb_clear(res_acb_internal);
+    acb_clear(t_acb_internal_val);
+    return { real_part, imag_part };
 }
 
 } // namespace poly_ode

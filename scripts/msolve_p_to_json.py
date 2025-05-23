@@ -39,7 +39,17 @@ class TreeToJson(Transformer):
 
     def number(self, tok):
         s = tok.value
-        return int(s) if re.fullmatch(r"-?\d+", s) else float(s)
+        if re.fullmatch(r"-?\d+", s): # It's an integer string
+            val = int(s)
+            # Heuristic: if bit length > 62 (approximate for fitting in typical signed 64-bit after parsing)
+            # or simply if it's a very long string for an integer.
+            # A simpler check might be len(s) > 18 (max for signed 64-bit is 19 digits, but can be less).
+            if val.bit_length() > 62: # Check bit_length for large magnitude
+                return str(val) # Convert very large integers to strings for JSON
+            else:
+                return val # Keep smaller integers as numbers
+        else: # It's a float string
+            return float(s)
 
     def NAME(self, tok):
         return tok.value
