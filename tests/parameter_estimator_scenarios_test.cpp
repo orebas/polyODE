@@ -136,7 +136,9 @@ TEST_F(ParameterEstimatorScenariosTest, SingleStateOneParam) {
                                                            validation_rmse_threshold,
                                                            integration_tol,
                                                            integration_tol,
-                                                           integration_dt);
+                                                           integration_dt,
+                                                           1e-12 // real_tolerance
+        );
     });
 
     ASSERT_FALSE(results.empty()) << "No valid solutions found after validation process.";
@@ -256,8 +258,15 @@ TEST_F(ParameterEstimatorScenariosTest, LotkaVolterraFullEstimation) {
     double integration_tol = 1e-7;
 
     ASSERT_NO_THROW({
-        results = estimator.process_solutions_and_validate(
-          solutions, system, data, t_initial, validation_rmse_threshold, integration_tol, integration_tol);
+        results = estimator.process_solutions_and_validate(solutions,
+                                                           system,
+                                                           data,
+                                                           t_initial,
+                                                           validation_rmse_threshold,
+                                                           integration_tol,
+                                                           integration_tol,
+                                                           0.01 /*dt_hint, default*/,
+                                                           1e-12 /*real_tolerance*/);
     });
 
     if (results.empty() && !solutions.empty()) {
@@ -457,8 +466,15 @@ TEST_F(ParameterEstimatorScenariosTest, TrivialUnidentSystem) {
     std::vector<EstimationResult> results;
     double validation_rmse_threshold = 5e-5; // Relaxed from 1e-5, was 2.45e-5
     ASSERT_NO_THROW({
-        results = estimator.process_solutions_and_validate(
-          solutions, system, data, t_initial, validation_rmse_threshold, 1e-7, 1e-7);
+        results = estimator.process_solutions_and_validate(solutions,
+                                                           system,
+                                                           data,
+                                                           t_initial,
+                                                           validation_rmse_threshold,
+                                                           1e-7,
+                                                           1e-7,
+                                                           0.01 /*dt_hint, default*/,
+                                                           1e-12 /*real_tolerance*/);
     });
 
     ASSERT_FALSE(results.empty()) << "No valid solutions found after validation.";
@@ -589,18 +605,19 @@ TEST_F(ParameterEstimatorScenariosTest, SumTestSystem) {
 
     PolynomialSolutionSet solutions;
     ASSERT_NO_THROW(solutions = estimator.solve());
-    // ASSERT_FALSE(solutions.empty()) << "CeresSolver returned no solutions for SumTest."; // Original line
-    // MSolve returns dim_flag = -1 (no solutions) for this system with these derivative orders and t_eval.
-    // This is correctly parsed as an empty solution set by MSolveSolver.
-    EXPECT_TRUE(solutions.empty()) << "SumTestSystem with MSolveSolver at t_eval=2.5 and y1_order=5 resulted in "
-                                      "dim_flag=-1 (no solutions) from msolve. Expecting empty solutions.";
 
-    // The following validation block will not run if solutions is empty.
-    // To test validation if solutions *were* found, this expectation needs to change or the system needs to yield
-    // solutions.
+    // NOTE (Dec 2023): MSolveSolver with -P 2 for this specific system (SumTestSystem)
+    // constructed with y1_order=5 (resulting in a 19x19 system) at t_eval=2.5,
+    // consistently returns a dimension flag of -1 (no solutions or error) via its JSON output,
+    // regardless of whether coefficients are sent as fixed-denominator or exact-rational.
+    // Independent testing with HomotopyContinuation.jl on the fixed-denominator version of this system
+    // found 10 complex solutions, but no real solutions, and the complex solutions had high residuals.
+    // This suggests the system might be ill-conditioned or numerically challenging for msolve.
+    // Skipping further validation for now if msolve reports no solutions.
     if (solutions.empty()) {
-        GTEST_SKIP() << "Skipping validation for SumTestSystem as MSolveSolver found no solutions (dim_flag = -1).";
-        return; // Skip the rest of the test if no solutions were found.
+        GTEST_SKIP() << "Skipping validation for SumTestSystem as MSolveSolver found no solutions (dim_flag = -1 "
+                        "reported by msolve).";
+        return;
     }
 
     std::vector<EstimationResult> results;
@@ -640,6 +657,235 @@ TEST_F(ParameterEstimatorScenariosTest, SumTestSystem) {
         }
     }
     EXPECT_TRUE(found_true_solution) << "SumTest: True parameter/IC combination not found.";
+}
+
+// --- Test for 'simple' model from simple_models.jl ---
+TEST_F(ParameterEstimatorScenariosTest, SimpleModel) {
+    std::cout << "\n--- Test: SimpleModel --- " << std::endl;
+
+    OdeSystemTestBuilder builder;
+    const double a_true = 0.4, b_true = 0.8, x1_0_true = 0.333, x2_0_true = 0.667;
+    builder.add_parameter("a", a_true)
+      .add_parameter("b", b_true)
+      .add_state_variable("x1", x1_0_true)
+      .add_state_variable("x2", x2_0_true)
+      .add_observable("y1", RationalFunction<double>(builder.get_variable("x1")))
+      .add_observable("y2", RationalFunction<double>(builder.get_variable("x2")))
+      .add_equation_for_state("x1", -builder.get_variable("a") * builder.get_variable("x2"))
+      .add_equation_for_state("x2", builder.get_variable("b") * builder.get_variable("x1"));
+
+    ObservedOdeSystem system = builder.get_system();
+    std::vector<double> time_points;
+    for (double t = 0.0; t <= 5.0; t += 0.5) { time_points.push_back(t); }
+    ExperimentalData data = builder.generate_data(time_points, 0.0, 0.01);
+
+    std::vector<Variable> params_to_analyze = {
+        builder.get_variable("a"), builder.get_variable("b"), builder.get_variable("x1"), builder.get_variable("x2")
+    };
+    double t_eval = time_points[time_points.size() / 2];
+    MSolveSolver solver;
+
+    // Corrected call with all 17 arguments
+    FullEstimationPipelineResults pipeline_results =
+      poly_ode::test_utils::run_complete_estimation_pipeline(solver,
+                                                             system,
+                                                             data,
+                                                             params_to_analyze,
+                                                             t_eval,
+                                                             5,     // ident_max_deriv_order
+                                                             5,     // ident_num_test_points
+                                                             1e-9,  // ident_rank_tol
+                                                             1e-6,  // ident_null_tol
+                                                             1e-12, // aa_abs_tol
+                                                             6,     // aa_max_order_hint (ident_max_deriv_order + 1)
+                                                             1e-3,  // validation_rmse_threshold
+                                                             1e-7,  // integration_abs_tol
+                                                             1e-7,  // integration_rel_tol
+                                                             0.001, // integration_dt_hint
+                                                             1e-9,  // real_tolerance_for_polisher
+                                                             -1.0   // parameter_positive_threshold_for_validation
+      );
+
+    // Assertions on identifiability results
+    EXPECT_EQ(pipeline_results.setup_data.identifiable_parameters.size(), params_to_analyze.size())
+      << "Expected all parameters and ICs to be identifiable for the SimpleModel.";
+
+    // Assertions on overall success and validated results
+    ASSERT_TRUE(pipeline_results.estimation_successful) << "Estimation pipeline failed for SimpleModel.";
+    ASSERT_FALSE(pipeline_results.validated_parameter_estimations.empty())
+      << "No valid solutions found after validation for SimpleModel.";
+
+    bool found_true_solution = false;
+    for (const auto &res : pipeline_results.validated_parameter_estimations) {
+        std::cout << "  SimpleModel Checking solution with RMSE: " << res.error_metric << std::endl;
+        bool a_match = res.parameters.count(builder.get_variable("a")) &&
+                       (std::abs(res.parameters.at(builder.get_variable("a")) - a_true) < 1e-2);
+        bool b_match = res.parameters.count(builder.get_variable("b")) &&
+                       (std::abs(res.parameters.at(builder.get_variable("b")) - b_true) < 1e-2);
+        bool x1_match = res.initial_conditions.count(builder.get_variable("x1")) &&
+                        (std::abs(res.initial_conditions.at(builder.get_variable("x1")) - x1_0_true) < 1e-2);
+        bool x2_match = res.initial_conditions.count(builder.get_variable("x2")) &&
+                        (std::abs(res.initial_conditions.at(builder.get_variable("x2")) - x2_0_true) < 1e-2);
+
+        if (a_match && b_match && x1_match && x2_match) {
+            found_true_solution = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_true_solution) << "SimpleModel: True parameter/IC combination not found.";
+}
+
+// --- Test for 'global_unident_test' model from test_models.jl ---
+TEST_F(ParameterEstimatorScenariosTest, GlobalUnidentTest) {
+    std::cout << "\n--- Test: GlobalUnidentTest --- " << std::endl;
+
+    OdeSystemTestBuilder builder;
+    const double a_true = 0.1, b_true = 0.2, c_true = 0.3, d_true = 0.4;
+    const double x1_0_true = 2.0, x2_0_true = 3.0, x3_0_true = 4.0;
+
+    builder.add_parameter("a", a_true)
+      .add_parameter("b", b_true)
+      .add_parameter("c", c_true)
+      .add_parameter("d", d_true)
+      .add_state_variable("x1", x1_0_true)
+      .add_state_variable("x2", x2_0_true)
+      .add_state_variable("x3", x3_0_true)
+      .add_observable("y1", RationalFunction<double>(builder.get_variable("x1")))
+      .add_observable("y2", RationalFunction<double>(builder.get_variable("x2")))
+      .add_equation_for_state("x1", -builder.get_variable("a") * builder.get_variable("x1"))
+      .add_equation_for_state("x2",
+                              (builder.get_variable("b") + builder.get_variable("c")) * builder.get_variable("x1"))
+      .add_equation_for_state("x3", builder.get_variable("d") * builder.get_variable("x1"));
+
+    ObservedOdeSystem system = builder.get_system();
+    std::vector<double> time_points;
+    for (double t = 0.0; t <= 5.0; t += 0.5) { time_points.push_back(t); }
+    ExperimentalData data = builder.generate_data(time_points, 0.0, 0.01);
+
+    std::vector<Variable> params_to_analyze = { builder.get_variable("a"),  builder.get_variable("b"),
+                                                builder.get_variable("c"),  builder.get_variable("d"),
+                                                builder.get_variable("x1"), builder.get_variable("x2"),
+                                                builder.get_variable("x3") };
+    double t_eval = time_points[time_points.size() / 2];
+    MSolveSolver solver;
+
+    // Using default helper parameters for other settings for this call
+    FullEstimationPipelineResults pipeline_results =
+      poly_ode::test_utils::run_complete_estimation_pipeline(solver, system, data, params_to_analyze, t_eval);
+
+    // Assertions on identifiability results
+    std::cout << "  Identifiable parameters (" << pipeline_results.setup_data.identifiable_parameters.size()
+              << ") from setup:" << std::endl;
+    for (const auto &p : pipeline_results.setup_data.identifiable_parameters) { std::cout << "    " << p << std::endl; }
+    std::cout << "  Non-identifiable parameters (" << pipeline_results.setup_data.non_identifiable_parameters.size()
+              << ") with fixed values:" << std::endl;
+    for (const auto &pair : pipeline_results.setup_data.non_identifiable_parameters) {
+        std::cout << "    " << pair.first << " = " << pair.second << std::endl;
+    }
+
+    bool a_id = false, b_id = false, c_id = false, d_id = false;
+    bool x1_id = false, x2_id = false, x3_id = false;
+    for (const auto &p : pipeline_results.setup_data.identifiable_parameters) {
+        if (p.name == "a") a_id = true;
+        if (p.name == "b") b_id = true;
+        if (p.name == "c") c_id = true;
+        if (p.name == "d") d_id = true;
+        if (p.name == "x1" && p.deriv_level == 0) x1_id = true;
+        if (p.name == "x2" && p.deriv_level == 0) x2_id = true;
+        if (p.name == "x3" && p.deriv_level == 0) x3_id = true;
+    }
+    EXPECT_TRUE(a_id) << "Param 'a' should be identifiable.";
+    EXPECT_TRUE(x1_id) << "IC 'x1_0' should be identifiable.";
+    EXPECT_TRUE(x2_id) << "IC 'x2_0' should be identifiable.";
+    EXPECT_FALSE(b_id && c_id) << "Params 'b' and 'c' should not both be individually identifiable.";
+    EXPECT_FALSE(d_id) << "Param 'd' should be unidentifiable.";
+    EXPECT_FALSE(x3_id) << "IC 'x3_0' should be unidentifiable.";
+
+    // Assertions on overall success and validated results
+    // For unidentifiable systems, pipeline_results.estimation_successful might be false if no solutions are found
+    // or if solutions don't meet RMSE. The key is checking the identifiable parts.
+    // EXPECT_TRUE(pipeline_results.estimation_successful) << "Estimation pipeline failed for GlobalUnidentTest.";
+
+    if (pipeline_results.validated_parameter_estimations.empty()) {
+        std::cout << "GlobalUnidentTest: No validated solutions found. This might be expected if unidentifiable "
+                     "components prevent RMSE pass."
+                  << std::endl;
+        // If b or c was not fixed, and identifiability is correct, we might not get a numerically precise result
+        // passing RMSE for all components. However, we expect the identifiable *sum* (b+c) to be recoverable if one of
+        // them was fixed. Or, if the analyzer correctly identifies only the sum, the check below is more direct.
+    }
+
+    bool found_consistent_identifiable_part = false;
+    for (const auto &res : pipeline_results.validated_parameter_estimations) {
+        bool current_sol_consistent = true;
+        if (a_id) {
+            ASSERT_TRUE(res.parameters.count(builder.get_variable("a")));
+            if (std::abs(res.parameters.at(builder.get_variable("a")) - a_true) > 1e-2) current_sol_consistent = false;
+        }
+        if (x1_id) {
+            ASSERT_TRUE(res.initial_conditions.count(builder.get_variable("x1")));
+            if (std::abs(res.initial_conditions.at(builder.get_variable("x1")) - x1_0_true) > 1e-2)
+                current_sol_consistent = false;
+        }
+        if (x2_id) {
+            ASSERT_TRUE(res.initial_conditions.count(builder.get_variable("x2")));
+            if (std::abs(res.initial_conditions.at(builder.get_variable("x2")) - x2_0_true) > 1e-2)
+                current_sol_consistent = false;
+        }
+
+        double estimated_b = 0.0, estimated_c = 0.0;
+        bool b_was_estimated = false, c_was_estimated = false;
+
+        if (b_id && res.parameters.count(builder.get_variable("b"))) {
+            estimated_b = res.parameters.at(builder.get_variable("b"));
+            b_was_estimated = true;
+        } else if (pipeline_results.setup_data.non_identifiable_parameters.count(builder.get_variable("b"))) {
+            estimated_b = pipeline_results.setup_data.non_identifiable_parameters.at(builder.get_variable("b"));
+        } else {
+            // b was neither identified nor fixed - this shouldn't happen if analyzer is complete
+            current_sol_consistent = false;
+        }
+
+        if (c_id && res.parameters.count(builder.get_variable("c"))) {
+            estimated_c = res.parameters.at(builder.get_variable("c"));
+            c_was_estimated = true;
+        } else if (pipeline_results.setup_data.non_identifiable_parameters.count(builder.get_variable("c"))) {
+            estimated_c = pipeline_results.setup_data.non_identifiable_parameters.at(builder.get_variable("c"));
+        } else {
+            // c was neither identified nor fixed
+            current_sol_consistent = false;
+        }
+
+        if (current_sol_consistent &&
+            (b_was_estimated || c_was_estimated ||
+             (pipeline_results.setup_data.non_identifiable_parameters.count(builder.get_variable("b")) &&
+              pipeline_results.setup_data.non_identifiable_parameters.count(builder.get_variable("c"))))) {
+            if (std::abs((estimated_b + estimated_c) - (b_true + c_true)) > 1e-2) { // Check sum
+                current_sol_consistent = false;
+            }
+        } else if (!(b_id ||
+                     c_id)) { // If neither b nor c were identifiable, they should both be fixed. Check their sum if so.
+            if (pipeline_results.setup_data.non_identifiable_parameters.count(builder.get_variable("b")) &&
+                pipeline_results.setup_data.non_identifiable_parameters.count(builder.get_variable("c"))) {
+                double fixed_b = pipeline_results.setup_data.non_identifiable_parameters.at(builder.get_variable("b"));
+                double fixed_c = pipeline_results.setup_data.non_identifiable_parameters.at(builder.get_variable("c"));
+                if (std::abs((fixed_b + fixed_c) - (b_true + c_true)) > 1e-2) current_sol_consistent = false;
+            } else {
+                current_sol_consistent = false; // Should not happen - if b,c unident, both should be fixed.
+            }
+        }
+
+        if (current_sol_consistent) {
+            found_consistent_identifiable_part = true;
+            std::cout << "Found consistent solution for identifiable parts in GlobalUnidentTest." << std::endl;
+            break;
+        }
+    }
+    // This assertion might be too strong if the RMSE for the full (unidentifiable) solution is high
+    // But if the identifiable parts are estimated correctly, and unidentifiable parts are fixed reasonably by analyzer,
+    // it should ideally pass. If not, it means the RMSE of the *whole* solution (including fixed parts) is too high.
+    EXPECT_TRUE(found_consistent_identifiable_part)
+      << "GlobalUnidentTest: Did not find a consistent solution for the identifiable parts.";
 }
 
 // Add more tests here for other scenarios...

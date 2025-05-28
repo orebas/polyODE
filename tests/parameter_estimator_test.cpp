@@ -257,9 +257,10 @@ TEST(ParameterEstimatorIntegrationTest, SolveSimpleSystemWithMSolve) {
                                                                  validation_rmse_threshold,
                                                                  integration_tol, // abs_err
                                                                  integration_tol, // rel_err
-                                                                 integration_dt   // dt_hint
+                                                                 integration_dt,  // dt_hint
+                                                                 1e-12            // real_tolerance
         );
-        // real_tolerance for process_solutions_and_validate defaults to 1e-6
+        // real_tolerance for process_solutions_and_validate defaults to 1e-6, now overridden
     });
 
     // --- 8. Verify Final Result --- //
@@ -354,8 +355,15 @@ TEST(ParameterEstimatorMultiTevalTest, RunSimpleSystemOverTimePoints) {
                                                             t_eval_points,
                                                             max_deriv_order_config,
                                                             validation_rmse_threshold,
-                                                            1e-9, // approximator_tol
-                                                            5     // approximator_max_order
+                                                            1e-9,  // approximator_tol
+                                                            5,     // approximator_max_order
+                                                            1,     // ident_num_test_points
+                                                            1e-9,  // ident_rank_tol
+                                                            1e-6,  // ident_null_tol
+                                                            1e-7,  // integration_abs_err
+                                                            1e-7,  // integration_rel_err
+                                                            0.001, // integration_dt_hint
+                                                            1e-12  // real_tolerance
         );
         // Other arguments for run_estimation_over_time_points will use their defaults
     });

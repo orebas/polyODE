@@ -1,4 +1,5 @@
 #include "MSolveSolver.hpp" // For class definition and includes like polynomial_solver.hpp, msolve/msolve/msolve.h (for types)
+#include "msolve_config.hpp" // For MSOLVE_EXECUTABLE_PATH
 
 // Attempt to prioritize vcpkg flint includes for this translation unit
 #include <flint/acb.h>      // For acb_t and acb_realref/imagref (added for explicitness)
@@ -47,11 +48,13 @@
 #include <unsupported/Eigen/Polynomials>
 #endif
 
+const std::string msolve_global_executable_path = MSOLVE_EXECUTABLE_PATH;
+
 namespace poly_ode {
 
 // Initialize static members
-bool MSolveSolver::msolve_initialized_ = false;
-int MSolveSolver::instance_count_ = 0;
+// bool MSolveSolver::msolve_initialized_ = false; // Removed
+// int MSolveSolver::instance_count_ = 0; // Removed
 
 // Helper function to generate unique temporary filenames
 std::string
@@ -75,60 +78,83 @@ generate_temp_filename(const std::string &prefix) {
 
 void
 MSolveSolver::initialize_msolve_if_needed() {
-    if (instance_count_ == 0) {
-        std::cout << "  [MSolveSolver] Checking msolve binary..." << std::endl;
+    // if (instance_count_ == 0) { // Removed
+    //     std::cout << "  [MSolveSolver] Checking msolve binary..." << std::endl;
 
-        // Check if msolve binary is accessible
-        const char *msolve_paths[] = {
-            "msolve",                                                  // In PATH
-            "build/vcpkg_installed/x64-linux/tools/msolve/bin/msolve", // vcpkg install location
-            "/usr/bin/msolve",                                         // System install
-            "/usr/local/bin/msolve"                                    // Local install
-        };
+    //     // Check if msolve binary is accessible
+    //     const char *msolve_paths[] = {
+    //         "msolve",                                                  // In PATH
+    //         "build/vcpkg_installed/x64-linux/tools/msolve/bin/msolve", // vcpkg install location
+    //         "/usr/bin/msolve",                                         // System install
+    //         "/usr/local/bin/msolve"                                    // Local install
+    //     };
 
-        bool found = false;
-        for (const char *path : msolve_paths) {
-            if (access(path, X_OK) == 0) {
-                std::cout << "  [MSolveSolver] Found msolve binary at: " << path << std::endl;
-                found = true;
-                break;
-            }
-        }
+    //     bool found = false;
+    //     for (const char *path : msolve_paths) {
+    //         if (access(path, X_OK) == 0) {
+    //             std::cout << "  [MSolveSolver] Found msolve binary at: " << path << std::endl;
+    //             // msolve_executable_path_ = path; // Store the found path
+    //             found = true;
+    //             break;
+    //         }
+    //     }
 
-        if (!found) {
-            std::cerr << "  [MSolveSolver] WARNING: msolve binary not found in standard locations." << std::endl;
-            std::cerr << "  [MSolveSolver] Please ensure msolve is installed and in your PATH." << std::endl;
-        }
+    //     if (!found) {
+    //         std::cerr << "  [MSolveSolver] WARNING: msolve binary not found in standard locations." << std::endl;
+    //         std::cerr << "  [MSolveSolver] Please ensure msolve is installed and in your PATH or CMake found it." <<
+    //         std::endl;
+    //         // throw std::runtime_error("msolve binary not found by MSolveSolver class."); // Consider throwing
+    //     }
 
-        msolve_initialized_ = true;
+    //     msolve_initialized_ = true;
+    // }
+    // instance_count_++;
+    // This function is now a no-op as path is checked at compile time / CMake config time.
+    // We could add a runtime check for the path provided by CMake if desired.
+    if (msolve_global_executable_path.empty()) {
+        std::cerr << "  [MSolveSolver] FATAL: MSOLVE_EXECUTABLE_PATH was empty at runtime." << std::endl;
+        throw std::runtime_error("msolve executable path not configured.");
     }
-    instance_count_++;
+    // Check if the CMake-provided path is accessible
+    // Using C-style access check for simplicity, could use std::filesystem in C++17
+    FILE *f = fopen(msolve_global_executable_path.c_str(), "r");
+    if (f) {
+        fclose(f);
+        // Further check for execute permission might be needed if fopen succeeds but X_OK fails.
+        // For now, if CMake provided it, we assume it's good.
+        std::cout << "  [MSolveSolver] Using msolve binary defined by CMake: " << msolve_global_executable_path
+                  << std::endl;
+    } else {
+        std::cerr << "  [MSolveSolver] ERROR: msolve binary at " << msolve_global_executable_path
+                  << " (from CMake) is not accessible." << std::endl;
+        throw std::runtime_error("msolve binary (from CMake) not accessible.");
+    }
 }
 
 void
 MSolveSolver::uninitialize_msolve_if_needed() {
-    instance_count_--;
-    if (instance_count_ == 0 && msolve_initialized_) {
-        std::cout << "  [MSolveSolver] Last instance destroyed." << std::endl;
-        msolve_initialized_ = false;
-    }
+    // instance_count_--; // Removed
+    // if (instance_count_ == 0 && msolve_initialized_) { // Removed
+    //     std::cout << "  [MSolveSolver] Last instance destroyed." << std::endl;
+    //     msolve_initialized_ = false; // Removed
+    // }
+    // No-op now
 }
 
 // Default constructor
 MSolveSolver::MSolveSolver()
-  : msolve_executable_path_("msolve")
-  , python_script_path_("scripts/msolve_p_to_json.py") {
-    // Attempt to find msolve and script in common locations or via environment variables if not absolute
-    // For now, uses hardcoded relative paths or assumes they are in PATH / relative to execution
-    std::cout << "  [MSolveSolver] Default constructor: msolve path: " << msolve_executable_path_
+  // : msolve_executable_path_("msolve") // Removed, uses global path now
+  : python_script_path_("scripts/msolve_p_to_json.py") {
+    initialize_msolve_if_needed(); // Call the simplified check
+    std::cout << "  [MSolveSolver] Constructor: msolve path (from CMake): " << msolve_global_executable_path
               << ", script path: " << python_script_path_ << std::endl;
 }
 
-// Constructor with paths
-MSolveSolver::MSolveSolver(std::string msolve_executable_path, std::string python_script_path)
-  : msolve_executable_path_(std::move(msolve_executable_path))
-  , python_script_path_(std::move(python_script_path)) {
-    std::cout << "  [MSolveSolver] Path constructor: msolve path: " << msolve_executable_path_
+// Constructor with paths - msolve_executable_path is now ignored.
+MSolveSolver::MSolveSolver(std::string /*msolve_executable_path_ignored*/, std::string python_script_path)
+  : python_script_path_(std::move(python_script_path)) {
+    initialize_msolve_if_needed(); // Call the simplified check
+    std::cout << "  [MSolveSolver] Path constructor: msolve path (from CMake): " << msolve_global_executable_path
               << ", script path: " << python_script_path_ << std::endl;
 }
 
@@ -169,6 +195,54 @@ MSolveSolver::double_to_rational_string(double x) {
     return str;
 }
 
+// NEW STATIC HELPER for rounding to fixed denominator fraction string
+static std::string
+double_to_fixed_den_rational_string(double val, int denominator = 65536) {
+    if (std::abs(val) < 1e-12 / static_cast<double>(denominator)) { // Adjusted near-zero for scaling
+        return "0";
+    }
+    double int_part_double;
+    double frac_part_double = std::modf(val, &int_part_double);
+
+    long long int_part_ll = static_cast<long long>(std::round(int_part_double)); // Round int_part too
+    long long num_ll = static_cast<long long>(std::round(frac_part_double * denominator));
+
+    std::stringstream ss;
+    // Combine into a single fraction (I*D + N) / D for msolve
+    fmpz_t fz_int_times_den, fz_num, fz_total_num;
+    fmpz_init(fz_int_times_den);
+    fmpz_init(fz_num);
+    fmpz_init(fz_total_num);
+
+    fmpz_set_si(fz_int_times_den, int_part_ll);
+    fmpz_mul_si(fz_int_times_den, fz_int_times_den, denominator); // I * D
+
+    fmpz_set_si(fz_num, num_ll);
+    fmpz_add(fz_total_num, fz_int_times_den, fz_num); // (I * D) + N
+
+    char *total_num_str = fmpz_get_str(nullptr, 10, fz_total_num);
+    ss << total_num_str << "/" << denominator;
+
+    flint_free(total_num_str);
+    fmpz_clear(fz_int_times_den);
+    fmpz_clear(fz_num);
+    fmpz_clear(fz_total_num);
+
+    // Handle case where the result is just an integer (e.g. num_ll was 0 after rounding, or val was integer)
+    if (num_ll == 0 && int_part_ll != 0) { // If frac part rounded to 0, just use integer part
+        return std::to_string(int_part_ll);
+    }
+    // If total_num_str is just "0" and original val wasn't near zero, it means only frac part was rounded to 0/D.
+    // The very first check for std::abs(val) handles true zeros.
+    // This logic might need refinement if total_num_str is "0" but int_part_ll was non-zero, implying N = -I*D.
+    // For now, the (I*D+N)/D should be general enough.
+    // A final simplification to integer if denominator is 1 and total_num is multiple of D
+    // is implicitly handled if fmpq_canonicalize were used, but here we construct string directly.
+    // The current form A/B is fine for msolve.
+
+    return ss.str();
+}
+
 // Helper to convert poly_ode::Polynomial to msolve string format
 std::string
 polynomial_to_msolve_string(const Polynomial<double> &poly, const std::map<Variable, std::string> &var_to_msolve_name) {
@@ -177,8 +251,10 @@ polynomial_to_msolve_string(const Polynomial<double> &poly, const std::map<Varia
     for (const auto &mono : poly.monomials) {
         if (!first_term && mono.coeff >= 0) { ss << "+"; }
 
-        // Use the robust double_to_rational_string converter
-        ss << MSolveSolver::double_to_rational_string(mono.coeff);
+        // Use the fixed denominator rational string converter by default for now
+        // Exact rationals can lead to very large numerators/denominators that msolve might struggle with
+        // for complex systems, or hit internal limits.
+        ss << double_to_fixed_den_rational_string(mono.coeff);
 
         for (const auto &var_exponent_pair : mono.vars) {
             auto it = var_to_msolve_name.find(var_exponent_pair.first);
@@ -284,22 +360,35 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
     msolve_in_stream.close();
 
     std::stringstream msolve_cmd_ss;
-    const char *msolve_binary_paths[] = {
-        "build/vcpkg_installed/x64-linux/tools/msolve/bin/msolve", "msolve", "/usr/bin/msolve", "/usr/local/bin/msolve"
-    };
-    bool found_msolve_binary = false;
-    for (const char *path : msolve_binary_paths) {
-        if (access(path, X_OK) == 0) {
-            msolve_cmd_ss << path;
-            found_msolve_binary = true;
-            break;
-        }
-    }
-    if (!found_msolve_binary) {
-        std::cerr << "[MSolveSolver] Error: msolve binary not found." << std::endl;
+    // const char *msolve_binary_paths[] = {
+    //     "build/vcpkg_installed/x64-linux/tools/msolve/bin/msolve", "msolve", "/usr/bin/msolve",
+    //     "/usr/local/bin/msolve"
+    // };
+    // bool found_msolve_binary = false;
+    // for (const char *path : msolve_binary_paths) {
+    //     if (access(path, X_OK) == 0) { // access() is from unistd.h
+    //         msolve_cmd_ss << path;
+    //         found_msolve_binary = true;
+    //         break;
+    //     }
+    // }
+    // if (!found_msolve_binary) {
+    if (msolve_global_executable_path.empty()) { // Check the global path
+        std::cerr << "[MSolveSolver] Error: msolve binary path (from CMake) is empty." << std::endl;
         remove(temp_msolve_input_file.c_str());
         return {};
     }
+    // Check access again just before use (optional, but good practice)
+    FILE *f = fopen(msolve_global_executable_path.c_str(), "r"); // C-style file check
+    if (!f) {
+        std::cerr << "[MSolveSolver] Error: msolve binary at " << msolve_global_executable_path
+                  << " (from CMake) not accessible before exec." << std::endl;
+        remove(temp_msolve_input_file.c_str());
+        return {};
+    }
+    fclose(f);
+
+    msolve_cmd_ss << msolve_global_executable_path; // Use the path from CMake
     msolve_cmd_ss << " -P 2 -v 0 -f " << temp_msolve_input_file << " -o " << temp_msolve_output_file;
     std::string msolve_cmd = msolve_cmd_ss.str();
 

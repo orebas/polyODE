@@ -10,6 +10,7 @@
 #include "algebraic_system.hpp"    // Include full definition of AlgebraicSystem
 #include "experimental_data.hpp"   // Include definition for ExperimentalData
 #include "observed_ode_system.hpp" // Need for process_solutions
+#include "ode_system.hpp"          // Make sure ODESystem is included for ResultsType
 #include "poly_ode.hpp"          // Include main library header (includes polynomial.hpp, observed_ode_system.hpp etc.)
 #include "polynomial_solver.hpp" // Include the correct solver interface (includes algebraic_system.hpp)
 // #include "algebraic_solver.hpp" // Removed redundant include
@@ -101,6 +102,44 @@ struct EstimationResult {
     double error_metric = std::numeric_limits<double>::max();
     bool is_stable = false;
     bool steady_state_reached = false;
+    ODESystem<double>::ResultsType simulated_trajectory;
+};
+
+// Define ForwardIntegrationObserver in the namespace so it's accessible
+// (Moved from being a local struct in process_solutions_and_validate)
+struct ForwardIntegrationObserver {
+    ODESystem<double>::ResultsType &sim_traj_ref;
+    const ObservedOdeSystem &original_sys_ref;
+    const ExperimentalData &data_ref_;
+    ODESystem<double> &eval_system_ref;
+
+    ForwardIntegrationObserver(ODESystem<double>::ResultsType &trajectories,
+                               const ObservedOdeSystem &original_system_definition,
+                               const ExperimentalData &experimental_data,
+                               ODESystem<double> &system_for_evaluation)
+      : sim_traj_ref(trajectories)
+      , original_sys_ref(original_system_definition)
+      , data_ref_(experimental_data)
+      , eval_system_ref(system_for_evaluation) {
+        sim_traj_ref.clear();
+        sim_traj_ref["time"].reserve(data_ref_.times.size());
+        for (const auto &obs_pair : original_sys_ref.observable_definitions) {
+            sim_traj_ref[obs_pair.first.name].reserve(data_ref_.times.size());
+        }
+    }
+
+    void operator()(const ODESystemStateType<double> &x, double t) {
+        sim_traj_ref["time"].push_back(t);
+        std::map<std::string, double> obs_values = eval_system_ref.evaluate_observables(x);
+        for (const auto &obs_pair : original_sys_ref.observable_definitions) {
+            const std::string &obs_name = obs_pair.first.name;
+            if (obs_values.count(obs_name)) {
+                sim_traj_ref[obs_name].push_back(obs_values.at(obs_name));
+            } else {
+                sim_traj_ref[obs_name].push_back(std::numeric_limits<double>::quiet_NaN());
+            }
+        }
+    }
 };
 
 // --- Main Parameter Estimation Class --- //

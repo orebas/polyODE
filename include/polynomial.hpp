@@ -475,6 +475,32 @@ struct Polynomial {
         result.simplify(); // Simplify the result
         return result;
     }
+
+    // Method to compute the partial derivative with respect to a variable
+    [[nodiscard]] Polynomial<Coeff> partial_derivative(const Variable &var_to_diff) const {
+        Polynomial<Coeff> result;
+        for (const auto &m : monomials) {
+            auto it = m.vars.find(var_to_diff);
+            if (it != m.vars.end()) {
+                // Variable var_to_diff is in this monomial
+                Coeff new_coeff = m.coeff * static_cast<Coeff>(it->second); // coeff * exponent
+                if (new_coeff == Coeff{}) { // If new coefficient is zero, this term vanishes
+                    continue;
+                }
+
+                Monomial<Coeff> deriv_m;
+                deriv_m.coeff = new_coeff;
+                deriv_m.vars = m.vars; // Copy other variables
+
+                deriv_m.vars[var_to_diff]--; // Decrease exponent of var_to_diff
+                if (deriv_m.vars[var_to_diff] == 0) { deriv_m.vars.erase(var_to_diff); }
+                result.monomials.push_back(deriv_m); // Add to list, simplify will combine later
+            }
+            // If var_to_diff is not in m.vars, derivative of this monomial w.r.t var_to_diff is 0.
+        }
+        result.simplify(); // Combine like terms
+        return result;
+    }
 };
 
 //-----------------------------------------------------------------------------

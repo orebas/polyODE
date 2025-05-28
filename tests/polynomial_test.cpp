@@ -1,4 +1,6 @@
-#include "test_utils.hpp" // Include common test utilities
+#include "polynomial.hpp"
+#include "test_utils.hpp"         // Include common test utilities
+#include "variable_operators.hpp" // For operator* to build polynomials easily
 #include <gtest/gtest.h>
 #include <map>
 #include <sstream>
@@ -7,7 +9,18 @@
 // Common variables (x, y, z, k, x_dot, etc.) are now in test_utils.hpp
 // Helper EXPECT_POLY_EQ is now in test_utils.hpp
 
-TEST(PolynomialTest, Constructors) {
+using namespace poly_ode;
+
+// Test Fixture for Polynomial Tests
+class PolynomialTest : public ::testing::Test {
+  protected:
+    Variable x{ "x" };
+    Variable y{ "y" };
+    Variable z{ "z" };
+    Variable p1{ "p1", 0, true }; // Constant parameter
+};
+
+TEST_F(PolynomialTest, Constructors) {
     // Default
     Polynomial<double> const p_default;
     EXPECT_TRUE(p_default.monomials.empty());
@@ -41,7 +54,7 @@ TEST(PolynomialTest, Constructors) {
     EXPECT_EQ(p_vec.monomials[1].vars.at(y), 1);
 }
 
-TEST(PolynomialTest, Simplify) {
+TEST_F(PolynomialTest, Simplify) {
     // Combine like terms
     Monomial<double> const m1(3.0, { { x, 1 } });  // 3x
     Monomial<double> const m2(2.0, { { y, 1 } });  // 2y
@@ -71,7 +84,7 @@ TEST(PolynomialTest, Simplify) {
     EXPECT_TRUE(p_empty.monomials.empty());
 }
 
-TEST(PolynomialTest, Arithmetic) {
+TEST_F(PolynomialTest, Arithmetic) {
     Polynomial<double> const p1(x);                                                   // x
     Polynomial<double> const p2({ Monomial<double>(2.0, y), Monomial<double>(3.0) }); // 2y + 3
     Monomial<double> const m_x2(2.0, x, 2);                                           // 2x^2
@@ -139,7 +152,7 @@ TEST(PolynomialTest, Arithmetic) {
     EXPECT_POLY_EQ(res_mul_sp, expected_mul_ps);
 }
 
-TEST(PolynomialTest, Evaluation) {
+TEST_F(PolynomialTest, Evaluation) {
     Polynomial<double> const p(
       { Monomial<double>(2.0, x, 2), Monomial<double>(-3.0, y), Monomial<double>(5.0) }); // 2x^2 - 3y + 5
     std::map<Variable, double> const values = { { x, 3.0 }, { y, 4.0 } };
@@ -155,7 +168,7 @@ TEST(PolynomialTest, Evaluation) {
     EXPECT_THROW(p_xyz.evaluate<double>(values), std::runtime_error);
 }
 
-TEST(PolynomialTest, Differentiation) {
+TEST_F(PolynomialTest, Differentiation) {
     // d(Constant)/dt = 0
     Monomial<double> const m_const(5.0);
     Polynomial<double> const p_const(m_const);
@@ -191,7 +204,7 @@ TEST(PolynomialTest, Differentiation) {
     EXPECT_POLY_EQ(res_kx_diff, expected_kx_diff);
 }
 
-TEST(PolynomialTest, StreamOutput) {
+TEST_F(PolynomialTest, StreamOutput) {
     std::stringstream ss;
 
     // Zero polynomial
@@ -216,7 +229,7 @@ TEST(PolynomialTest, StreamOutput) {
     EXPECT_EQ(ss.str(), "5 + -1*x^2 + 2*y");
 }
 
-TEST(PolynomialTest, ComplexArithmetic) {
+TEST_F(PolynomialTest, ComplexArithmetic) {
     Polynomial<double> const px(x);
     Polynomial<double> const py(y);
     Polynomial<double> const pz(z);
@@ -238,7 +251,7 @@ TEST(PolynomialTest, ComplexArithmetic) {
     // This type of operation naturally leads to RationalFunctions.
 }
 
-TEST(PolynomialTest, ArithmeticWithDerivatives) {
+TEST_F(PolynomialTest, ArithmeticWithDerivatives) {
     Polynomial<double> const px(x);
     Polynomial<double> const px_dot(x_dot);
     Polynomial<double> const py(y);
@@ -258,7 +271,7 @@ TEST(PolynomialTest, ArithmeticWithDerivatives) {
     EXPECT_POLY_EQ(res2, exp2);
 }
 
-TEST(PolynomialTest, DifferentiationWithDerivatives) {
+TEST_F(PolynomialTest, DifferentiationWithDerivatives) {
     // d(x*x_dot)/dt = x_dot*x_dot + x*x_dotdot
     Polynomial<double> const p_x_xdot = Polynomial<double>(x) * Polynomial<double>(x_dot);
     Polynomial<double> const res_diff = differentiate_wrt_t(p_x_xdot);
@@ -270,7 +283,7 @@ TEST(PolynomialTest, DifferentiationWithDerivatives) {
     EXPECT_POLY_EQ(res_diff, exp_diff);
 }
 
-TEST(PolynomialTest, DifferentiationWithConstants) {
+TEST_F(PolynomialTest, DifferentiationWithConstants) {
     // d(k*x)/dt = k*x_dot (k is constant)
     Polynomial<double> const p_k(k);
     Polynomial<double> const p_x(x);
@@ -290,4 +303,141 @@ TEST(PolynomialTest, DifferentiationWithConstants) {
     Monomial<double> const m_k2_xdot(1.0, { { k, 2 }, { x_dot, 1 } }); // k^2 * x_dot
     Polynomial<double> const exp_diff_k2x_5({ m_k2_xdot });
     EXPECT_POLY_EQ(res_diff_k2x_5, exp_diff_k2x_5);
+}
+
+TEST_F(PolynomialTest, PartialDerivativeAndEvaluateSimple) {
+    // P(x) = 3*x^2 + 2*x + 5
+    Polynomial<double> p = Polynomial<double>(Monomial<double>(3.0, x, 2)) +
+                           Polynomial<double>(Monomial<double>(2.0, x, 1)) + Polynomial<double>(Monomial<double>(5.0));
+    p.simplify();
+
+    // dP/dx = 6*x + 2
+    Polynomial<double> dp_dx = p.partial_derivative(x);
+    dp_dx.simplify();
+
+    std::map<Variable, double> values = { { x, 2.0 } };
+    EXPECT_DOUBLE_EQ(p.evaluate(values), 21.0);
+    EXPECT_DOUBLE_EQ(dp_dx.evaluate(values), 14.0);
+
+    // Test derivative w.r.t. a variable not in the polynomial
+    Polynomial<double> dp_dy = p.partial_derivative(y);
+    dp_dy.simplify();
+    EXPECT_TRUE(dp_dy.monomials.empty() || (dp_dy.monomials.size() == 1 && dp_dy.monomials[0].coeff == 0.0));
+    EXPECT_DOUBLE_EQ(dp_dy.evaluate(values), 0.0); // values map doesn't need y for a zero polynomial
+}
+
+TEST_F(PolynomialTest, PartialDerivativeAndEvaluateMultiVar) {
+    // P(x,y) = x^2*y + 3*y^3 + 2*x
+    Polynomial<double> p = Polynomial<double>(Monomial<double>(1.0, { { x, 2 }, { y, 1 } })) +
+                           Polynomial<double>(Monomial<double>(3.0, { { y, 3 } })) +
+                           Polynomial<double>(Monomial<double>(2.0, { { x, 1 } }));
+    p.simplify();
+
+    // dP/dx = 2*x*y + 2
+    Polynomial<double> dp_dx = p.partial_derivative(x);
+    dp_dx.simplify();
+
+    // dP/dy = x^2 + 9*y^2
+    Polynomial<double> dp_dy = p.partial_derivative(y);
+    dp_dy.simplify();
+
+    std::map<Variable, double> values = { { x, 1.0 }, { y, 2.0 } };
+    EXPECT_DOUBLE_EQ(p.evaluate(values), 28.0);
+    EXPECT_DOUBLE_EQ(dp_dx.evaluate(values), 6.0);
+    EXPECT_DOUBLE_EQ(dp_dy.evaluate(values), 37.0);
+}
+
+TEST_F(PolynomialTest, DerivativeOfConstantTermOrNonExistentVar) {
+    // P(x) = x^2 + 5
+    Polynomial<double> p = Polynomial<double>(Monomial<double>(1.0, x, 2)) + Polynomial<double>(Monomial<double>(5.0));
+    p.simplify();
+
+    // dP/dx = 2x
+    Polynomial<double> dp_dx = p.partial_derivative(x);
+    dp_dx.simplify();
+
+    // dP/dy = 0
+    Polynomial<double> dp_dy = p.partial_derivative(y);
+    dp_dy.simplify();
+
+    // dP/dp1 = 0 (p1 is a constant parameter)
+    Polynomial<double> dp_dp1 = p.partial_derivative(p1);
+    dp_dp1.simplify();
+
+    std::map<Variable, double> values = { { x, 3.0 }, { p1, 10.0 } }; // p1 value shouldn't matter for derivative
+    EXPECT_DOUBLE_EQ(dp_dx.evaluate(values), 6.0);
+
+    EXPECT_TRUE(dp_dy.monomials.empty() || (dp_dy.monomials.size() == 1 && dp_dy.monomials[0].coeff == 0.0));
+    EXPECT_DOUBLE_EQ(dp_dy.evaluate(values), 0.0);
+
+    EXPECT_TRUE(dp_dp1.monomials.empty() || (dp_dp1.monomials.size() == 1 && dp_dp1.monomials[0].coeff == 0.0));
+    EXPECT_DOUBLE_EQ(dp_dp1.evaluate(values), 0.0);
+}
+
+TEST_F(PolynomialTest, MixedTermsAndZeroCoefficients) {
+    // P(x,y) = 2*x*y - y^2 + 0*x^3
+    // Simplified: P(x,y) = 2*x*y - y^2
+    Polynomial<double> p = Polynomial<double>(Monomial<double>(2.0, { { x, 1 }, { y, 1 } })) -
+                           Polynomial<double>(Monomial<double>(1.0, { { y, 2 } })) +
+                           Polynomial<double>(Monomial<double>(0.0, { { x, 3 } }));
+    p.simplify(); // Should remove 0*x^3 term
+
+    // Check simplification
+    ASSERT_EQ(p.monomials.size(), 2);
+
+    // dP/dx = 2*y
+    Polynomial<double> dp_dx = p.partial_derivative(x);
+    dp_dx.simplify();
+
+    // dP/dy = 2*x - 2*y
+    Polynomial<double> dp_dy = p.partial_derivative(y);
+    dp_dy.simplify();
+
+    std::map<Variable, double> values = { { x, 3.0 }, { y, 1.0 } };
+    EXPECT_DOUBLE_EQ(p.evaluate(values), 5.0); // 2*3*1 - 1^2 = 6 - 1 = 5
+    EXPECT_DOUBLE_EQ(dp_dx.evaluate(values), 2.0);
+    EXPECT_DOUBLE_EQ(dp_dy.evaluate(values), 4.0);
+}
+
+TEST_F(PolynomialTest, DerivativeWrtConstantParameter) {
+    // P(x, p1) = p1*x^2 + 2*p1
+    // Note: p1 is marked as is_constant=true
+    Polynomial<double> p = Polynomial<double>(Monomial<double>(1.0, { { p1, 1 }, { x, 2 } })) +
+                           Polynomial<double>(Monomial<double>(2.0, { { p1, 1 } }));
+    p.simplify();
+
+    // dP/dx = 2*p1*x
+    Polynomial<double> dp_dx = p.partial_derivative(x);
+    dp_dx.simplify();
+
+    // dP/dp1 should be 0 if we treat p1 as a variable for differentiation,
+    // but the current partial_derivative logic returns 0 if var_to_diff.is_constant.
+    Polynomial<double> dp_dp1 = p.partial_derivative(p1);
+    dp_dp1.simplify();
+
+    std::map<Variable, double> values = { { x, 3.0 }, { p1, 4.0 } };
+    EXPECT_DOUBLE_EQ(p.evaluate(values), 44.0);
+    EXPECT_DOUBLE_EQ(dp_dx.evaluate(values), 24.0);
+
+    // After change: dP/dp1 = x^2 + 2. At x=3, p1=4, this is 3^2 + 2 = 11.
+    // Polynomial should be x^2 + 2
+    Polynomial<double> expected_dp_dp1 =
+      Polynomial<double>(Monomial<double>(1.0, x, 2)) + Polynomial<double>(Monomial<double>(2.0));
+    expected_dp_dp1.simplify();
+    // EXPECT_TRUE(dp_dp1.monomials.empty() || (dp_dp1.monomials.size() == 1 && dp_dp1.monomials[0].coeff == 0.0));
+    // EXPECT_DOUBLE_EQ(dp_dp1.evaluate(values), 0.0);
+    EXPECT_EQ(dp_dp1.monomials.size(), expected_dp_dp1.monomials.size());
+    if (dp_dp1.monomials.size() == expected_dp_dp1.monomials.size()) {
+        // Basic check, could be more robust by comparing monomial maps
+        bool all_match = true;
+        for (size_t i = 0; i < dp_dp1.monomials.size(); ++i) {
+            if (!(dp_dp1.monomials[i].vars == expected_dp_dp1.monomials[i].vars &&
+                  std::abs(dp_dp1.monomials[i].coeff - expected_dp_dp1.monomials[i].coeff) < 1e-9)) {
+                all_match = false;
+                break;
+            }
+        }
+        EXPECT_TRUE(all_match) << "dP/dp1 polynomial structure mismatch.";
+    }
+    EXPECT_DOUBLE_EQ(dp_dp1.evaluate(values), 11.0);
 }

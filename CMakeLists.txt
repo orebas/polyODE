@@ -73,6 +73,21 @@ endif()
 
 pkg_check_modules(MSOLVE REQUIRED IMPORTED_TARGET msolve) # vcpkg ensures msolve.pc is findable
 
+# Find the msolve executable
+find_program(MSOLVE_EXECUTABLE msolve
+    HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/msolve" # Where the port actually installs it
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/msolve/bin" # Original hint for vcpkg
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin" # Fallback if installed to bin
+    PATHS ENV PATH # Check system PATH as well
+    DOC "Path to msolve executable"
+)
+
+if(NOT MSOLVE_EXECUTABLE)
+    message(FATAL_ERROR "MSolve executable (msolve) not found. Ensure it is installed correctly by vcpkg or is in PATH.")
+else()
+    message(STATUS "Found msolve executable: ${MSOLVE_EXECUTABLE}")
+endif()
+
 # Find FLINT library (used by univariate_solver_flint) - using pkg-config with vcpkg FLINT
 pkg_check_modules(FLINT REQUIRED IMPORTED_TARGET flint)
 
@@ -99,6 +114,9 @@ add_library(polyode_lib STATIC
     src/MSolveSolver.cpp                        # MSolve solver implementation
     src/example_systems.cpp                     # Added to compile and link with the library
     src/univariate_solver_flint.cpp             # Added univariate solver implementation
+    src/solution_polisher.cpp                   # Added SolutionPolisher
+    tests/model_test_framework.cpp              # Test framework for systematic model testing
+    tests/model_registrations.cpp               # Model registrations for test framework
 )
 # Specify that the library includes headers from the include/ directory.
 # PUBLIC makes these includes available to targets linking against polyode_lib.
@@ -106,6 +124,12 @@ target_include_directories(polyode_lib PUBLIC include)
 # Add tests directory for test_utils.hpp needed by parameter_estimation.hpp
 # PRIVATE because users of the library shouldn't need test utils.
 target_include_directories(polyode_lib PUBLIC tests)
+# Add build directory include for generated headers like msolve_config.hpp
+target_include_directories(polyode_lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
+
+# Generate config header with msolve executable path
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/msolve_config.hpp.in
+               ${CMAKE_CURRENT_BINARY_DIR}/include/msolve_config.hpp @ONLY)
 
 # Define __GMP_DONT_USE_CXX_STREAM_OPS for polyode_lib and any other
 # targets that will compile files including FLINT headers.
@@ -246,6 +270,7 @@ target_link_libraries(univariate_solver_flint_test PRIVATE PkgConfig::FLINT) # R
 # Add the new parameter estimator test using the helper
 add_polyode_test(parameter_estimator_test)
 add_polyode_test(parameter_estimator_scenarios_test)
+add_polyode_test(systematic_model_tests)
 # Link specific libraries needed by this test (e.g., for PHCSolver)
 # Assuming vcpkg provides nlohmann_json::nlohmann_json target
 find_package(nlohmann_json REQUIRED)

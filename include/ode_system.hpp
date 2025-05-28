@@ -101,30 +101,30 @@ class ODESystem {
         update_value_map(x); // Prepare map with current state and parameters
 
         // ---- START DEBUG ----
-        std::cout << "    DEBUG [ODESystem::operator() t=" << t << "] Value map for RHS eval:" << std::endl;
-        for (const auto &pair : m_value_map) {
-            std::cout << "      " << pair.first << " = " << pair.second << std::endl;
-        }
-        std::cout << "    DEBUG [ODESystem::operator()] Input state x: [ ";
-        for (const auto &val : x) { std::cout << val << " "; }
-        std::cout << "]" << std::endl;
+        // std::cout << "    DEBUG [ODESystem::operator() t=" << t << "] Value map for RHS eval:" << std::endl;
+        // for (const auto &pair : m_value_map) {
+        //     std::cout << "      " << pair.first << " = " << pair.second << std::endl;
+        // }
+        // std::cout << "    DEBUG [ODESystem::operator()] Input state x: [ ";
+        // for (const auto &val : x) { std::cout << val << " "; }
+        // std::cout << "]" << std::endl;
         // ---- END DEBUG ----
 
         dxdt.resize(m_rhs_equations.size());
         for (size_t i = 0; i < m_rhs_equations.size(); ++i) {
             // ---- START DEBUG ----
-            std::cout << "      DEBUG Eval RHS for " << m_state_vars[i] << " using expr: " << m_rhs_equations[i]
-                      << std::endl;
+            // std::cout << "      DEBUG Eval RHS for " << m_state_vars[i] << " using expr: " << m_rhs_equations[i]
+            //           << std::endl;
             // ---- END DEBUG ----
             try {
                 dxdt[i] = m_rhs_equations[i].evaluate(m_value_map);
                 // ---- START DEBUG ----
-                std::cout << "        DEBUG Result d(" << m_state_vars[i] << ")/dt = " << dxdt[i] << " (at t=" << t
-                          << ")" << std::endl;
-                if (std::isnan(dxdt[i]) || std::isinf(dxdt[i])) {
-                    std::cerr << "        WARNING: NaN/Inf produced for d(" << m_state_vars[i] << ")/dt at t=" << t
-                              << std::endl;
-                }
+                // std::cout << "        DEBUG Result d(" << m_state_vars[i] << ")/dt = " << dxdt[i] << " (at t=" << t
+                //           << ")" << std::endl;
+                // if (std::isnan(dxdt[i]) || std::isinf(dxdt[i])) {
+                //     std::cerr << "        WARNING: NaN/Inf produced for d(" << m_state_vars[i] << ")/dt at t=" << t
+                //               << std::endl;
+                // }
                 // ---- END DEBUG ----
             } catch (const std::exception &e) {
                 std::stringstream ss;

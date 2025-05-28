@@ -1,6 +1,6 @@
 {
     "name": "msolve",
-    "version": "0.7.5",
+    "version": "0.8.0",
     "description": "msolve is a library for solving systems of polynomial equations.",
     "homepage": "https://github.com/algebraic-solving/msolve",
     "license": "GPL-2.0-only",
