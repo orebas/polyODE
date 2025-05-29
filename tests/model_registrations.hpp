@@ -50,12 +50,23 @@ void register_brusselator();
 void register_seir();
 void register_treatment();
 void register_hiv();
+void register_biohydrogenation();
+void register_repressilator();
+void register_hiv_old_wrong();
 
 // Advanced models
 void register_daisy_ex3();
 void register_daisy_mamil3();
+void register_daisy_mamil4();
 void register_fitzhugh_nagumo();
+void register_lv_periodic();
+void register_slowfast();
+void register_sirsforced();
+void register_allee_competition();
+void register_two_compartment_pk();
 void register_crauste();
+void register_crauste_corrected();
+void register_crauste_revised();
 
 } // namespace models
 

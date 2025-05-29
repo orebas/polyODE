@@ -231,59 +231,9 @@ struct FullEstimationPipelineResults {
     bool estimation_successful = false;
 };
 
-// Helper function to run the main parameter estimation pipeline
-inline FullEstimationPipelineResults
-run_complete_estimation_pipeline(PolynomialSolver &solver,
-                                 const ObservedOdeSystem &system,
-                                 const ExperimentalData &data,
-                                 const std::vector<Variable> &params_to_analyze,
-                                 double t_eval,
-                                 int ident_max_deriv_order = 5,
-                                 int ident_num_test_points = 5,
-                                 double ident_rank_tol = 1e-9,
-                                 double ident_null_tol = 1e-6,
-                                 double aa_abs_tol = 1e-9,
-                                 unsigned int aa_max_order_hint = 10,
-                                 double validation_rmse_threshold = 1e-3,
-                                 double integration_abs_tol = 1e-7,
-                                 double integration_rel_tol = 1e-7,
-                                 double integration_dt_hint = 0.001,
-                                 double real_tolerance_for_polisher = 1e-9,
-                                 double parameter_positive_threshold_for_validation = -1.0) {
-    FullEstimationPipelineResults pipeline_results;
-    pipeline_results.estimation_successful = false; // Default to failure
-
-    std::cout << "    [TEST_HELPER] Running Identifiability Analysis & Setup..." << std::endl;
-    EXPECT_NO_THROW({
-        pipeline_results.setup_data = setup_estimation(
-          system, params_to_analyze, ident_max_deriv_order, ident_num_test_points, ident_rank_tol, ident_null_tol);
-    }) << "Exception during setup_estimation.";
-
-    // If setup_estimation itself threw and was caught by EXPECT_NO_THROW,
-    // setup_data might be in an indeterminate state or empty.
-    // Depending on how critical this is, we might return early.
-    // For now, let's assume if it throws, the test is failed by EXPECT_NO_THROW,
-    // but we proceed to see if later stages can run (they likely won't if setup_data is bad).
-
-    // TODO: Implement step 2: Approximator Fitting & Derivative Evaluation
-    std::cerr << "STUB PART 2 WARNING: Approximator fitting not yet implemented in helper!" << std::endl;
-
-    // TODO: Implement step 3: Estimator Instantiation
-    std::cerr << "STUB PART 3 WARNING: Estimator instantiation not yet implemented in helper!" << std::endl;
-
-    // TODO: Implement step 4: Solve Algebraic System
-    std::cerr << "STUB PART 4 WARNING: Algebraic solve not yet implemented in helper!" << std::endl;
-    // pipeline_results.algebraic_solutions = ... ;
-
-    // TODO: Implement step 5: Process Solutions and Validate
-    std::cerr << "STUB PART 5 WARNING: Solution processing not yet implemented in helper!" << std::endl;
-    // pipeline_results.validated_parameter_estimations = ... ;
-    // if (!pipeline_results.validated_parameter_estimations.empty()){
-    //     pipeline_results.estimation_successful = true;
-    // }
-
-    return pipeline_results;
-}
+// NOTE: The stubbed run_complete_estimation_pipeline helper function has been removed.
+// Legacy tests that used this function have been modernized and moved to the 
+// systematic_model_tests.cpp framework which uses the proper ModelTestFramework.
 
 class OdeSystemTestBuilder {
   public:
