@@ -506,37 +506,46 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
 
     std::cout << "  [MSolveSolver] JSON output from Python script: \n" << json_output_str << std::endl;
 
+    // Attempt to parse the JSON output
+    nlohmann::json parsed_json;
     try {
-        if (json_output_str.empty()) {
-            std::cerr << "[MSolveSolver] Error: JSON output from Python script is empty." << std::endl;
-            return {};
-        }
-        nlohmann::json parsed_json = nlohmann::json::parse(json_output_str);
+        parsed_json = nlohmann::json::parse(json_output_str);
         std::cout << "  [MSolveSolver] Successfully parsed JSON. Structure is expected to be rational parametrization."
                   << std::endl;
-        std::cout << "  [MSolveSolver] Full parsed JSON for debug: \n"
-                  << parsed_json.dump(2) << std::endl; // Print pretty JSON
+        // Optionally print the full JSON for debugging
+        std::cout << "  [MSolveSolver] Full parsed JSON for debug: " << std::endl << parsed_json.dump(2) << std::endl;
 
-        // --- Start of new JSON parsing logic for rational parametrization ---
+    } catch (const nlohmann::json::parse_error &e) {
+        std::cerr << "  [MSolveSolver] JSON parsing error: " << e.what() << std::endl;
+        std::cerr << "  [MSolveSolver] Python script output was: " << json_output_str << std::endl;
+        this->last_solution_dimension_ = -2; // Error in parsing
+        throw std::runtime_error("Failed to parse msolve JSON output.");
+    }
 
-        if (!parsed_json.is_array() || parsed_json.empty()) {
-            std::cerr
-              << "[MSolveSolver] Error: Parsed JSON is not a non-empty array as expected for rational parametrization."
-              << std::endl;
-            return {};
-        }
-
-        int dim_flag = parsed_json[0].get<int>();
-        std::cout << "  [MSolveSolver] Dimension flag from JSON: " << dim_flag << std::endl;
-
-        if (dim_flag != 0) {
-            std::cerr << "[MSolveSolver] Error: System dimension is " << dim_flag
-                      << ". MSolveSolver currently only supports 0-dimensional systems (finite solutions)."
+    // --- Phase MS-2: Interpret JSON and Extract Dimension/Solutions ---
+    int msolve_dim_flag = -2; // Default to error
+    if (parsed_json.is_array() && !parsed_json.empty()) {
+        if (parsed_json[0].is_number_integer()) {
+            msolve_dim_flag = parsed_json[0].get<int>();
+            std::cout << "  [MSolveSolver] Dimension flag from JSON: " << msolve_dim_flag << std::endl;
+        } else {
+            std::cerr << "  [MSolveSolver] Error: Expected integer dimension flag as first element of JSON array."
                       << std::endl;
-            // Per PLAN.md, defer handling non-zero-dim cases.
-            return {}; // Return empty solution set
+            msolve_dim_flag = -2;
         }
+    } else {
+        std::cerr << "  [MSolveSolver] Error: Parsed JSON is not a non-empty array as expected." << std::endl;
+        msolve_dim_flag = -2;
+    }
+    this->last_solution_dimension_ = msolve_dim_flag; // Store the dimension
 
+    if (msolve_dim_flag < 0) { // No solutions or error
+        std::cout << "  [MSolveSolver] System dimension is " << msolve_dim_flag
+                  << ". No solutions to extract or error from msolve." << std::endl;
+        return {};
+    }
+
+    if (msolve_dim_flag == 0) {
         // If dim_flag == 0, proceed to extract parametrization components from parsed_json[1]
         // The structure of parsed_json[1] is [<characteristic>, <num_vars_in_param_rep>, <degree_system>, <vars_list>,
         // <linear_form_coeffs>, <parametrization_data>]
@@ -932,59 +941,11 @@ MSolveSolver::solve(const AlgebraicSystem &system) {
         }
         */
 
-    } catch (const nlohmann::json::parse_error &e) {
-        std::cerr << "[MSolveSolver] Error: Failed to parse JSON output from Python script: " << e.what() << std::endl;
-        std::cerr << "[MSolveSolver] Raw JSON string was: " << json_output_str << std::endl;
-        return {};
-    }
-
-    if (solutions.empty() && system.unknowns.size() == 1 && system.polynomials.size() == 1) {
-        std::cout << "  [MSolveSolver] INFO: No solutions from msolve; attempting local univariate solver fallback."
-                  << std::endl;
-
-        const auto &poly = system.polynomials[0];
-        const auto &var = system.unknowns[0];
-
-        // Determine polynomial degree and build coefficient vector (ascending powers)
-        int max_degree = 0;
-        for (const auto &mono : poly.monomials) {
-            int exp = 0;
-            if (!mono.vars.empty()) { exp = mono.vars.begin()->second; }
-            max_degree = std::max(max_degree, exp);
-        }
-
-        Eigen::VectorXd coeffs(max_degree + 1);
-        coeffs.setZero();
-        for (const auto &mono : poly.monomials) {
-            int exp = 0;
-            if (!mono.vars.empty()) { exp = mono.vars.begin()->second; }
-            coeffs[exp] += mono.coeff;
-        }
-
-        // Ensure leading coefficient (highest power) is non-zero; otherwise, reduce degree.
-        int actual_degree = max_degree;
-        while (actual_degree > 0 && std::abs(coeffs[actual_degree]) < 1e-12) { --actual_degree; }
-        coeffs.conservativeResize(actual_degree + 1);
-
-        if (actual_degree == 0) {
-            std::cerr << "  [MSolveSolver] Fallback aborted: polynomial is constant." << std::endl;
-        } else {
-            Eigen::PolynomialSolver<double, Eigen::Dynamic> psolver;
-            psolver.compute(coeffs);
-            auto eigen_roots = psolver.roots();
-
-            std::ostringstream oss_key;
-            oss_key << var;
-            std::string var_key = oss_key.str();
-
-            for (int i = 0; i < eigen_roots.size(); ++i) {
-                std::complex<double> root = eigen_roots[i];
-                PolynomialSolutionMap sol_map;
-                sol_map[var_key] = root;
-                solutions.push_back(sol_map);
-            }
-            std::cout << "  [MSolveSolver] Fallback solver produced " << eigen_roots.size() << " root(s)." << std::endl;
-        }
+    } else {
+        std::cerr << "[MSolveSolver] Error: System dimension is " << msolve_dim_flag
+                  << ". MSolveSolver currently only supports 0-dimensional systems (finite solutions)." << std::endl;
+        // Per PLAN.md, defer handling non-zero-dim cases.
+        return {}; // Return empty solution set
     }
 
     std::cout << "  [MSolveSolver] Solve finished. Found " << solutions.size() << " solution(s) after JSON processing."
@@ -1110,6 +1071,11 @@ MSolveSolver::evaluate_poly_at_complex(const std::vector<std::string> &coeffs_st
     acb_clear(res_acb_internal);
     acb_clear(t_acb_internal_val);
     return { real_part, imag_part };
+}
+
+int
+MSolveSolver::get_last_solution_dimension() const {
+    return this->last_solution_dimension_;
 }
 
 } // namespace poly_ode

@@ -157,17 +157,28 @@ select_rows_by_order(const Eigen::MatrixXd &jacobian_T,                  // Dim:
 inline int
 compute_numerical_rank(const Eigen::MatrixXd &matrix, double tolerance, bool debug_print = false) {
     if (matrix.rows() == 0 || matrix.cols() == 0) { return 0; }
-    // Use SVD - computationally more expensive but robust for rank determination
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd(matrix); // ComputeThinU/V not needed for singular values only
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(matrix);
     Eigen::VectorXd singular_values = svd.singularValues();
-    if (debug_print) { std::cout << " Singular values for rank check: " << singular_values.transpose() << std::endl; }
+    if (debug_print) {
+        std::cout << "    [DEBUG compute_numerical_rank] Input matrix_rows: " << matrix.rows()
+                  << ", matrix_cols: " << matrix.cols() << std::endl;
+        std::cout << "    [DEBUG compute_numerical_rank] Singular values: " << singular_values.transpose() << std::endl;
+        std::cout << "    [DEBUG compute_numerical_rank] Tolerance: " << tolerance << std::endl;
+    }
 
     if (singular_values.size() == 0) { return 0; }
     double max_singular_value = singular_values(0);
-    if (max_singular_value <= 0) { // Handle zero matrix case
+    if (max_singular_value <= 0) {
+        if (debug_print) {
+            std::cout << "    [DEBUG compute_numerical_rank] Max singular value <= 0. Returning rank 0." << std::endl;
+        }
         return 0;
     }
     double threshold = max_singular_value * tolerance;
+    if (debug_print) {
+        std::cout << "    [DEBUG compute_numerical_rank] Max singular value: " << max_singular_value
+                  << ", Threshold: " << threshold << std::endl;
+    }
     int rank = 0;
     for (int k = 0; k < singular_values.size(); ++k) {
         if (singular_values(k) > threshold) {
@@ -228,12 +239,16 @@ class IdentifiabilityAnalyzer {
                                                      double rank_tolerance = 1e-9,
                                                      double nullspace_tolerance = 1e-6) {
 
-        std::cout << "Starting identifiability analysis..." << std::endl;
-        std::cout << "  Parameters to analyze: " << parameters_to_analyze_.size() << std::endl;
-        std::cout << "  Max derivative order: " << max_derivative_order_ << std::endl;
-        std::cout << "  Num test points: " << num_test_points << std::endl;
-        std::cout << "  Rank tolerance: " << rank_tolerance << std::endl;
-        std::cout << "  Nullspace tolerance: " << nullspace_tolerance << std::endl;
+        std::cout << "[DEBUG IA::analyze] Starting identifiability analysis..." << std::endl;
+        std::cout << "  [DEBUG IA::analyze] System: num_states=" << system_ref_.num_states()
+                  << ", num_params=" << system_ref_.num_parameters() << std::endl;
+        std::cout << "  [DEBUG IA::analyze] Parameters to analyze (" << parameters_to_analyze_.size() << "): ";
+        for (const auto &p : parameters_to_analyze_) { std::cout << p << " "; }
+        std::cout << std::endl;
+        std::cout << "  [DEBUG IA::analyze] Max derivative order: " << max_derivative_order_ << std::endl;
+        std::cout << "  [DEBUG IA::analyze] Num test points: " << num_test_points << std::endl;
+        std::cout << "  [DEBUG IA::analyze] Rank tolerance: " << rank_tolerance << std::endl;
+        std::cout << "  [DEBUG IA::analyze] Nullspace tolerance: " << nullspace_tolerance << std::endl;
 
         AnalysisResults results;
         results.identifiable_parameters = parameters_to_analyze_; // Start assuming all are identifiable
@@ -263,10 +278,10 @@ class IdentifiabilityAnalyzer {
         int final_rank = 0;
         while (true) {
             iteration++;
-            std::cout << "\n--- Iteration " << iteration << " ---" << std::endl;
+            std::cout << "\n--- [DEBUG IA::analyze] Iteration " << iteration << " ---" << std::endl;
             size_t current_num_params = current_params_identifiable.size();
-            std::cout << "Analyzing " << current_num_params << " parameters.";
-            // TODO: Print current parameter list?
+            std::cout << "[DEBUG IA::analyze] Analyzing " << current_num_params << " parameters: ";
+            for (const auto &p : current_params_identifiable) { std::cout << p << " "; }
             std::cout << std::endl;
             /*constexpr int MaxParams = 10 */ // current_num_params; // TODO: Make this dynamic or larger? For Jet N.
 
@@ -303,6 +318,12 @@ class IdentifiabilityAnalyzer {
 
                 // Assign values for parameters/ICs being analyzed at this point
                 for (const auto &var : current_params_identifiable) { point_param_values[var] = distrib(gen); }
+
+                // DEBUG: Print point_param_values
+                std::cout << "    [DEBUG IA::analyze Iter " << iteration << " Point " << i
+                          << "] Param values for diff: ";
+                for (const auto &pair : point_param_values) { std::cout << pair.first << "=" << pair.second << " "; }
+                std::cout << std::endl;
 
                 // Assign values for parameters/ICs NOT being analyzed (use defaults or fixed values)
                 std::set<Variable> analyzed_set(current_params_identifiable.begin(), current_params_identifiable.end());
@@ -378,7 +399,10 @@ class IdentifiabilityAnalyzer {
                     break;
                 }
             }
-
+            std::cout << "  [DEBUG IA::analyze Iter " << iteration
+                      << "] Singular Values (for combined_jacobian_T): " << singular_values.transpose() << std::endl;
+            std::cout << "  [DEBUG IA::analyze Iter " << iteration << "] Max Singular Value: " << max_singular_value
+                      << std::endl;
             std::cout << "Iteration " << iteration << " - Numerical Rank: " << numerical_rank
                       << " (Threshold: " << threshold << ")" << std::endl;
 
@@ -472,8 +496,9 @@ class IdentifiabilityAnalyzer {
                 int rank_view = compute_numerical_rank(S_view_T.transpose(), rank_tolerance, true);
 
                 // DEBUG:
-                std::cout << "  [Overall] Testing order " << n_test << ", S_view_T dims: " << S_view_T.rows() << "x"
-                          << S_view_T.cols() << ", Rank(S_view) = " << rank_view << std::endl;
+                std::cout << "  [DEBUG IA::analyze Overall Reduction] Testing order " << n_test
+                          << ", S_view_T dims: " << S_view_T.rows() << "x" << S_view_T.cols()
+                          << ", Rank(S_view) = " << rank_view << ", Target Rank = " << final_rank << std::endl;
 
                 if (rank_view < final_rank) {
                     current_max_overall_order = n_test + 1;
@@ -503,10 +528,13 @@ class IdentifiabilityAnalyzer {
             bool improvement_found = true; // Start loop
             while (improvement_found) {
                 improvement_found = false;
-                std::cout << "In loop, improvement_found = " << improvement_found << std::endl;
+                std::cout << "[DEBUG IA::analyze Indiv. Refine] Start of refinement loop. improvement_found = "
+                          << std::boolalpha << improvement_found << std::endl;
                 for (const auto &obs_k : ordered_obs) {
-                    std::cout << "DEBUG: Current order for " << obs_k.name << ": " << current_orders[obs_k]
+                    std::cout << "[DEBUG IA::analyze Indiv. Refine] Trying to reduce for observable: " << obs_k.name
                               << std::endl;
+                    std::cout << "[DEBUG IA::analyze Indiv. Refine] Current order for " << obs_k.name << ": "
+                              << current_orders[obs_k] << std::endl;
                     int current_order_k = current_orders[obs_k];
                     if (current_order_k > 0) {
                         // Try reducing order for this observable
@@ -515,18 +543,16 @@ class IdentifiabilityAnalyzer {
 
                         Eigen::MatrixXd S_view_T = select_rows_by_order(
                           final_combined_jacobian_T, temp_orders, ordered_obs, max_derivative_order_, num_test_points);
-                        // std::cout << "S_view_T: " << S_view_T << std::endl;
                         int rank_view = compute_numerical_rank(S_view_T.transpose(), rank_tolerance, true);
 
-                        // DEBUG:
-                        std::cout << "  [Individual] Testing reduction for " << obs_k.name << " to order "
-                                  << (current_order_k - 1) << ", S_view_T dims: " << S_view_T.rows() << "x"
-                                  << S_view_T.cols() << ", Rank(S_view) = " << rank_view << std::endl;
+                        std::cout << "  [DEBUG IA::analyze Indiv. Refine] Testing reduction for " << obs_k.name
+                                  << " to order " << (current_order_k - 1) << ", S_view_T dims: " << S_view_T.rows()
+                                  << "x" << S_view_T.cols() << ", Rank(S_view) = " << rank_view
+                                  << ", Target Rank = " << final_rank << std::endl;
 
                         if (rank_view == final_rank) {
-                            // Reduction successful! Update permanently and restart the refinement loop.
-                            std::cout << "  Reduced max order for " << obs_k.name << " to " << (current_order_k - 1)
-                                      << std::endl;
+                            std::cout << "  [DEBUG IA::analyze Indiv. Refine]   SUCCESS: Reduced max order for "
+                                      << obs_k.name << " to " << (current_order_k - 1) << std::endl;
                             current_orders[obs_k] = current_order_k - 1;
                             improvement_found = true;
                             break; // Restart outer while loop
@@ -554,15 +580,20 @@ class IdentifiabilityAnalyzer {
             std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
         }
 
-        std::cout << "  About to call determine_square_system_orders..." << std::endl;
-        results.square_system_derivative_orders =
-          determine_square_system_orders(current_params_identifiable, results.required_derivative_orders);
+        std::cout << "  About to call determine_square_system_orders with rank_tolerance: " << rank_tolerance
+                  << std::endl;
+        results.square_system_derivative_orders = determine_square_system_orders(current_params_identifiable,
+                                                                                 results.required_derivative_orders,
+                                                                                 final_combined_jacobian_T,
+                                                                                 max_derivative_order_,
+                                                                                 num_test_points,
+                                                                                 rank_tolerance);
 
         std::cout << "  Results from determine_square_system_orders:" << std::endl;
         for (const auto &pair : results.square_system_derivative_orders) {
             std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
         }
-        std::cout << "  Square system orders computation complete." << std::endl;
+        std::cout << "  Finished identifiability analysis." << std::endl;
 
         return results;
     }
@@ -765,7 +796,250 @@ class IdentifiabilityAnalyzer {
                                                        int num_test_points) const;
 
     std::map<Observable, int> determine_square_system_orders(const std::vector<Variable> &identifiable_params,
-                                                             const std::map<Observable, int> &minimal_orders) const;
+                                                             const std::map<Observable, int> &minimal_orders,
+                                                             const Eigen::MatrixXd &jacobian_T_for_square_check,
+                                                             int original_max_deriv_order_for_jacobian,
+                                                             int num_test_points_for_jacobian,
+                                                             double rank_tol_for_square_check) const {
+        std::cout << "[DEBUG IA::det_sq_sys_ord] Starting determine_square_system_orders..." << std::endl;
+        std::cout << "  [DEBUG IA::det_sq_sys_ord] Full identifiable_params list (for sensitivity Jacobian): ";
+        for (const auto &p : identifiable_params) { std::cout << p << " "; }
+        std::cout << std::endl;
+
+        std::vector<Variable> model_params_to_solve_for;
+        std::set<std::string> model_param_names_from_system;
+        for (const auto &p_sys : system_ref_.parameters) { model_param_names_from_system.insert(p_sys.name); }
+        for (const auto &p_id : identifiable_params) {
+            if (model_param_names_from_system.count(p_id.name)) { model_params_to_solve_for.push_back(p_id); }
+        }
+        if (model_params_to_solve_for.empty() && !system_ref_.parameters.empty()) {
+            std::cout
+              << "    [DEBUG IA::det_sq_sys_ord] Warning: No model parameters from system_ref_.parameters were found "
+                 "in identifiable_params. Cannot perform algebraic Jacobian rank check for model parameters."
+              << std::endl;
+        } else if (model_params_to_solve_for.empty() && system_ref_.parameters.empty()) {
+            std::cout << "    [DEBUG IA::det_sq_sys_ord] System has no model parameters defined. Algebraic Jacobian "
+                         "rank check for model parameters skipped."
+                      << std::endl;
+        }
+        std::cout << "  [DEBUG IA::det_sq_sys_ord] Model parameters to solve for algebraically ("
+                  << model_params_to_solve_for.size() << "): ";
+        for (const auto &p_model : model_params_to_solve_for) { std::cout << p_model << " "; }
+        std::cout << std::endl;
+
+        if (identifiable_params.empty()) { return std::map<Observable, int>(); }
+
+        std::map<Observable, int> current_orders = minimal_orders;
+        int iter_count = 0;
+        const int MAX_SQ_ITER = system_ref_.num_observables() * (original_max_deriv_order_for_jacobian + 1) + 15;
+
+        // Setup for random point evaluation of symbolic Jacobians
+        std::random_device rd_sq;
+        std::mt19937 gen_sq(rd_sq());
+        std::uniform_real_distribution<> distrib_sq(0.5, 1.5); // For substituting into symbolic expressions
+
+        do {
+            iter_count++;
+            if (iter_count > MAX_SQ_ITER) {
+                std::cout << "    [DEBUG IA::det_sq_sys_ord] Max iterations reached for squaring. Returning current "
+                             "best orders."
+                          << std::endl;
+                break;
+            }
+
+            int num_derived_observables_from_orders = 0;
+            for (const auto &pair : current_orders) { num_derived_observables_from_orders += (pair.second + 1); }
+
+            std::cout << "  [DEBUG IA::det_sq_sys_ord] Iteration: " << iter_count << std::endl;
+            std::cout << "    Current orders: ";
+            for (const auto &p : current_orders) { std::cout << p.first.name << ":" << p.second << " "; }
+            std::cout << std::endl;
+            std::cout << "    Num derived observables from these orders: " << num_derived_observables_from_orders
+                      << std::endl;
+            std::cout << "    Target num identifiable params (e.g. a,b,X,Y): " << identifiable_params.size()
+                      << std::endl;
+            std::cout << "    Target num model params (e.g. a,b): " << model_params_to_solve_for.size() << std::endl;
+
+            // === Check 1: Rank of Sensitivity Jacobian for ALL identifiable_params ===
+            Eigen::MatrixXd S_view_T_all_params = select_rows_by_order(jacobian_T_for_square_check,
+                                                                       current_orders,
+                                                                       system_ref_.get_observables(),
+                                                                       original_max_deriv_order_for_jacobian,
+                                                                       num_test_points_for_jacobian);
+            int rank_for_all_id_params = 0;
+            if (S_view_T_all_params.rows() > 0 && S_view_T_all_params.cols() > 0) {
+                rank_for_all_id_params =
+                  compute_numerical_rank(S_view_T_all_params.transpose(), rank_tol_for_square_check, false);
+            } else {
+                std::cout << "    [DEBUG IA::det_sq_sys_ord] S_view_T_all_params is empty. Rank is 0 for all_id_params."
+                          << std::endl;
+            }
+            std::cout << "    [DEBUG IA::det_sq_sys_ord] Sens. Rank for ALL id_params = " << rank_for_all_id_params
+                      << " (target: " << identifiable_params.size() << ") using S_view_T_all_params ("
+                      << S_view_T_all_params.rows() << "x" << S_view_T_all_params.cols() << ")" << std::endl;
+            bool all_id_params_rank_ok = (rank_for_all_id_params == identifiable_params.size());
+
+            // === Check 2: Rank of Sensitivity Jacobian for MODEL PARAMETERS ONLY ===
+            std::vector<int> model_param_column_indices;
+            if (!model_params_to_solve_for.empty()) {
+                for (const auto &model_p : model_params_to_solve_for) {
+                    auto it = std::find(parameters_to_analyze_.begin(), parameters_to_analyze_.end(), model_p);
+                    if (it != parameters_to_analyze_.end()) {
+                        model_param_column_indices.push_back(std::distance(parameters_to_analyze_.begin(), it));
+                    } else {
+                        std::cerr << "      Warning: Model parameter " << model_p
+                                  << " not found in original parameters_to_analyze_ list for sensitivity Jacobian "
+                                     "column selection!"
+                                  << std::endl;
+                    }
+                }
+            }
+            Eigen::MatrixXd S_view_T_model_params_only;
+            if (!model_param_column_indices.empty() && S_view_T_all_params.cols() > 0 &&
+                S_view_T_all_params.rows() > 0) {
+                bool all_indices_valid = true;
+                if (!model_param_column_indices.empty()) { // Avoid dereferencing end() if empty
+                    for (int col_idx : model_param_column_indices) {
+                        if (col_idx >= S_view_T_all_params.cols()) {
+                            all_indices_valid = false;
+                            break;
+                        }
+                    }
+                }
+                if (!all_indices_valid) {
+                    std::cerr << "     Error: Invalid column indices for model_params. Cannot select columns from "
+                                 "S_view_T_all_params."
+                              << std::endl;
+                    S_view_T_model_params_only.resize(S_view_T_all_params.rows(), 0);
+                } else if (!model_param_column_indices.empty()) {
+                    S_view_T_model_params_only.resize(S_view_T_all_params.rows(), model_param_column_indices.size());
+                    for (size_t i = 0; i < model_param_column_indices.size(); ++i) {
+                        S_view_T_model_params_only.col(i) = S_view_T_all_params.col(model_param_column_indices[i]);
+                    }
+                }
+            } else {
+                S_view_T_model_params_only.resize(S_view_T_all_params.rows(), 0);
+            }
+            int rank_for_model_params = 0;
+            if (S_view_T_model_params_only.rows() > 0 && S_view_T_model_params_only.cols() > 0) {
+                rank_for_model_params =
+                  compute_numerical_rank(S_view_T_model_params_only.transpose(), rank_tol_for_square_check, true);
+            } else {
+                if (model_params_to_solve_for.empty())
+                    std::cout << "    [DEBUG IA::det_sq_sys_ord] No model parameters identified to check sensitivity "
+                                 "rank against."
+                              << std::endl;
+                else
+                    std::cout << "    [DEBUG IA::det_sq_sys_ord] S_view_T_model_params_only is effectively empty. Rank "
+                                 "is 0 for model_params."
+                              << std::endl;
+            }
+            std::cout << "    [DEBUG IA::det_sq_sys_ord] Sens. Rank for MODEL_PARAMS_ONLY = " << rank_for_model_params
+                      << " (target: " << model_params_to_solve_for.size() << ")" << std::endl;
+            bool model_params_sens_rank_ok =
+              (model_params_to_solve_for.empty() || rank_for_model_params == model_params_to_solve_for.size());
+
+            // === Check 3: Structural break heuristic & Measurement count heuristic ===
+            bool structural_break_heuristic_met = model_params_to_solve_for.empty();
+            int max_order_achieved_in_current = 0;
+            if (!current_orders.empty()) {
+                for (const auto &order_pair : current_orders) {
+                    if (order_pair.second > max_order_achieved_in_current) {
+                        max_order_achieved_in_current = order_pair.second;
+                    }
+                }
+            }
+            if (!model_params_to_solve_for.empty()) {
+                // Default K_MIN to 1, meaning at least first derivatives are generally preferred if solving for params.
+                int K_MIN_FOR_ALGEBRAIC_SOLVABILITY = 1;
+                // TODO: Add a mechanism here if specific models (like Brusselator) are known to require K_MIN=2 or
+                // higher. For now, this simpler heuristic will not force 2nd order for SimpleModel but might not fix
+                // Brusselator's 0-D msolve.
+
+                if (max_order_achieved_in_current >= K_MIN_FOR_ALGEBRAIC_SOLVABILITY) {
+                    structural_break_heuristic_met = true;
+                }
+                std::cout << "    [DEBUG IA::det_sq_sys_ord] Max order achieved in current_orders: "
+                          << max_order_achieved_in_current
+                          << ", K_MIN_FOR_ALGEBRAIC_SOLVABILITY (heuristic): " << K_MIN_FOR_ALGEBRAIC_SOLVABILITY
+                          << std::endl;
+            }
+
+            bool sufficient_measurements_heuristic =
+              (num_derived_observables_from_orders >= identifiable_params.size());
+
+            std::cout << "    [DEBUG IA::det_sq_sys_ord] Summary: all_id_rank_ok: " << std::boolalpha
+                      << all_id_params_rank_ok << ", model_params_sens_rank_ok: " << std::boolalpha
+                      << model_params_sens_rank_ok
+                      << ", structural_break_heuristic_met (max_order>=K_MIN): " << std::boolalpha
+                      << structural_break_heuristic_met
+                      << ", sufficient_measurements_heuristic (num_deriv_obs >= num_id_params): " << std::boolalpha
+                      << sufficient_measurements_heuristic << std::endl;
+
+            // Primary break conditions: all ranks must be okay, and we must have enough measurements.
+            if (all_id_params_rank_ok && model_params_sens_rank_ok && sufficient_measurements_heuristic) {
+                // If structural heuristic is also met (e.g. max_order >= K_MIN), then definitely accept.
+                if (structural_break_heuristic_met) {
+                    std::cout << "    [DEBUG IA::det_sq_sys_ord] All primary rank conditions, structural heuristic, "
+                                 "and sufficient measurements met. Orders accepted."
+                              << std::endl;
+                    break;
+                }
+                // If ranks are okay and measurements are sufficient, but structural (e.g. higher order) is not met yet,
+                // we might still want to increment if possible, to see if we can meet structural without losing rank.
+                // However, if we *exactly* match the number of identifiable parameters with derived observables, and
+                // ranks are good, this is often a good place to stop for non-problematic models.
+                if (num_derived_observables_from_orders == identifiable_params.size()) {
+                    std::cout << "    [DEBUG IA::det_sq_sys_ord] Ranks OK, and num_derived_obs == num_id_params. "
+                                 "Accepting, hoping structure is OK or K_MIN=1 was sufficient."
+                              << std::endl;
+                    break;
+                }
+                std::cout << "    [DEBUG IA::det_sq_sys_ord] Ranks OK, sufficient_measurements OK, but structural "
+                             "heuristic not met AND num_derived_obs != num_id_params. Trying to increment."
+                          << std::endl;
+            } else {
+                std::cout << "    [DEBUG IA::det_sq_sys_ord] Primary rank conditions or sufficient measurements not "
+                             "met. Trying to increment orders."
+                          << std::endl;
+            }
+
+            // ... (increment logic) ...
+            bool can_increment = false;
+            Observable obs_to_inc;
+            int min_ord_val = original_max_deriv_order_for_jacobian + 1;
+            std::vector<Observable> ordered_observables_local = system_ref_.get_observables();
+
+            for (const auto &obs_from_sys : ordered_observables_local) {
+                int current_obs_order_val = current_orders.count(obs_from_sys) ? current_orders.at(obs_from_sys) : -1;
+                if (current_obs_order_val < original_max_deriv_order_for_jacobian) {
+                    if (current_obs_order_val < min_ord_val) {
+                        min_ord_val = current_obs_order_val;
+                        obs_to_inc = obs_from_sys;
+                        can_increment = true;
+                    }
+                }
+            }
+            if (can_increment) {
+                std::cout << "    [DEBUG IA::det_sq_sys_ord] Incrementing order for observable: " << obs_to_inc.name
+                          << " from " << current_orders[obs_to_inc] << " to " << (current_orders[obs_to_inc] + 1)
+                          << std::endl;
+                current_orders[obs_to_inc]++;
+            } else {
+                std::cout << "    [DEBUG IA::det_sq_sys_ord] Cannot increment further or conditions not met. Stopping."
+                          << std::endl;
+                break;
+            }
+        } while (true);
+
+        std::cout << "[DEBUG IA::det_sq_sys_ord] Final square system orders determined:";
+        for (const auto &pair : current_orders) {
+            std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
+        }
+        std::cout << std::endl;
+
+        return current_orders;
+    }
 
 }; // <-- ENSURE THIS IS PRESENT TO CLOSE IdentifiabilityAnalyzer class
 

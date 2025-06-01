@@ -69,6 +69,7 @@ setup_estimation(const ObservedOdeSystem &system,
 
     // 2. Populate the EstimationSetupData struct
     EstimationSetupData setup_data;
+    setup_data.original_system_ptr = &system; // Store pointer to the original system
     setup_data.identifiable_parameters = analysis_results.identifiable_parameters;
     setup_data.non_identifiable_parameters = analysis_results.non_identifiable_parameters;
     // Use the orders calculated for a square system, NOT the minimal ones
@@ -343,12 +344,68 @@ ParameterEstimator::build_algebraic_system_internal() {
 
     AlgebraicSystem alg_system; // Moved earlier
 
+    // Track which state derivatives will be constrained by ODEs instead of measurements
+    std::set<Variable> ode_constrained_derivatives;
+
+    // First, check which ODEs contain parameters we're trying to estimate
+    const auto &params_to_estimate = setup_data_ref_.identifiable_parameters;
+    std::set<Variable> params_to_estimate_set(params_to_estimate.begin(), params_to_estimate.end());
+
+    if (setup_data_ref_.original_system_ptr) {
+        for (size_t i = 0; i < setup_data_ref_.original_system_ptr->state_variables.size(); ++i) {
+            const Variable &state_var_base = setup_data_ref_.original_system_ptr->state_variables[i];
+            Variable first_order_state_deriv_var(state_var_base.name, 1);
+
+            auto rhs_it = state_deriv_expressions_with_fixed_params.find(first_order_state_deriv_var);
+            if (rhs_it != state_deriv_expressions_with_fixed_params.end()) {
+                const RationalFunction<double> &rhs_expr = rhs_it->second;
+
+                // Check if this ODE contains any parameters we're estimating
+                bool contains_params = false;
+                std::set<Variable> vars_in_rhs = get_variables_from_rf(rhs_expr);
+                for (const auto &var : vars_in_rhs) {
+                    if (var.is_constant && params_to_estimate_set.count(var)) {
+                        contains_params = true;
+                        break;
+                    }
+                }
+
+                if (contains_params) {
+                    // Mark this derivative as needing ODE constraint instead of measurement
+                    ode_constrained_derivatives.insert(first_order_state_deriv_var);
+                    std::cout << "      " << first_order_state_deriv_var
+                              << " will use ODE constraint (contains parameters to estimate)" << std::endl;
+                }
+            }
+        }
+    }
+
     // Add Observable Equations and gather variables from them
     for (const auto &req_pair : setup_data_ref_.required_derivative_orders) {
         const Observable &obs = req_pair.first;
         int max_order = req_pair.second;
         for (int order = 0; order <= max_order; ++order) {
             Variable obs_deriv_var(obs.name, order);
+
+            // Check if this observable derivative corresponds to a state derivative that needs ODE constraint
+            bool skip_measurement_constraint = false;
+            if (order > 0) {
+                // Check if this observable is directly a state variable
+                for (const auto &state_var : setup_data_ref_.original_system_ptr->state_variables) {
+                    if (obs.name == state_var.name) {
+                        Variable state_deriv(state_var.name, order);
+                        if (ode_constrained_derivatives.count(state_deriv)) {
+                            skip_measurement_constraint = true;
+                            std::cout << "      Skipping measurement constraint for " << obs_deriv_var
+                                      << " (will use ODE instead)" << std::endl;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (skip_measurement_constraint) { continue; }
+
             auto sym_it = obs_deriv_expressions_with_fixed_params.find(obs_deriv_var); // Use map with fixed params
             auto approx_it = approx_obs_values_ref_.find(obs_deriv_var);
 
@@ -420,7 +477,74 @@ ParameterEstimator::build_algebraic_system_internal() {
         }
     }
 
-    // --- 4. Finalize AlgebraicSystem --- //
+    // --- 4. NEW/ENHANCED LOGIC: Ensure all relevant ODEs involving parameters_to_estimate are included ---
+    std::cout << "    Ensuring all relevant ODEs involving parameters to estimate are included..." << std::endl;
+    // params_to_estimate and params_to_estimate_set are already defined earlier in the function
+
+    if (!setup_data_ref_.original_system_ptr) {
+        std::cerr
+          << "      FATAL ERROR: Original system pointer not set in EstimationSetupData. Cannot proceed with ODE check."
+          << std::endl;
+        // This should ideally not happen if setup_estimation sets it correctly.
+    } else {
+        // For each state variable, check if its ODE contains parameters we're estimating
+        for (size_t i = 0; i < setup_data_ref_.original_system_ptr->state_variables.size(); ++i) {
+
+            const Variable &state_var_base = setup_data_ref_.original_system_ptr->state_variables[i];
+            Variable first_order_state_deriv_var(state_var_base.name, 1);
+
+            // Skip if already defined
+            if (state_derivs_defined_in_system.count(first_order_state_deriv_var)) { continue; }
+
+            auto rhs_it = state_deriv_expressions_with_fixed_params.find(first_order_state_deriv_var);
+            if (rhs_it == state_deriv_expressions_with_fixed_params.end()) {
+                std::cerr << "      Warning: RHS definition for " << first_order_state_deriv_var
+                          << " not found in state_deriv_expressions_with_fixed_params. Cannot add its ODE."
+                          << std::endl;
+                continue;
+            }
+            const RationalFunction<double> &rhs_expr_for_ode = rhs_it->second;
+
+            // Check if this ODE contains any parameters we're estimating
+            bool relevant_ode = false;
+            std::set<Variable> vars_in_rhs = get_variables_from_rf(rhs_expr_for_ode);
+            for (const auto &var_in_rhs : vars_in_rhs) {
+                if (var_in_rhs.is_constant && params_to_estimate_set.count(var_in_rhs)) {
+                    relevant_ode = true;
+                    break;
+                }
+            }
+
+            if (relevant_ode) {
+                std::cout << "      ODE for " << first_order_state_deriv_var
+                          << " contains parameters to estimate. Adding it." << std::endl;
+
+                solver_unknowns.insert(first_order_state_deriv_var);
+
+                Polynomial<double> lhs_poly(first_order_state_deriv_var);
+                Polynomial<double> def_poly_eq = lhs_poly * rhs_expr_for_ode.denominator - rhs_expr_for_ode.numerator;
+                alg_system.polynomials.push_back(def_poly_eq);
+                state_derivs_defined_in_system.insert(first_order_state_deriv_var);
+
+                std::cout << "        Added ODE Eq: " << first_order_state_deriv_var << " = " << rhs_expr_for_ode
+                          << std::endl;
+
+                // Add variables from this ODE's RHS to solver_unknowns
+                for (const auto &var_in_new_def : get_variables_from_rf(rhs_expr_for_ode)) {
+                    if (solver_unknowns.insert(var_in_new_def).second) {
+                        if (!var_in_new_def.is_constant && var_in_new_def.deriv_level > 0 &&
+                            state_derivs_defined_in_system.find(var_in_new_def) ==
+                              state_derivs_defined_in_system.end()) {
+                            std::cout << "          New var from this ODE's RHS: " << var_in_new_def
+                                      << " (added to unknowns if new)" << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- 5. Finalize AlgebraicSystem --- //
     alg_system.unknowns.assign(solver_unknowns.begin(), solver_unknowns.end());
     std::sort(alg_system.unknowns.begin(), alg_system.unknowns.end());
 
@@ -491,6 +615,9 @@ calculate_rmse(const std::map<Observable, std::vector<double>> &simulated,
     double sum_sq_error = 0.0;
     size_t total_points = 0;
 
+    std::cout << "DEBUG: Starting RMSE calculation with " << observables_to_compare.size() << " observables"
+              << std::endl;
+
     for (const auto &obs : observables_to_compare) {
         auto sim_it = simulated.find(obs);
         auto meas_it = measured.find(obs);
@@ -504,6 +631,9 @@ calculate_rmse(const std::map<Observable, std::vector<double>> &simulated,
         const auto &sim_vec = sim_it->second;
         const auto &meas_vec = meas_it->second;
 
+        std::cout << "DEBUG: Processing observable " << obs.name << " with sim size=" << sim_vec.size()
+                  << " and meas size=" << meas_vec.size() << std::endl;
+
         if (sim_vec.size() != meas_vec.size()) {
             std::cerr << "Warning: Size mismatch for observable " << obs.name << " in RMSE calc." << std::endl;
             continue;
@@ -511,15 +641,29 @@ calculate_rmse(const std::map<Observable, std::vector<double>> &simulated,
 
         for (size_t i = 0; i < sim_vec.size(); ++i) {
             double diff = sim_vec[i] - meas_vec[i];
-            sum_sq_error += diff * diff;
+            double sq_diff = diff * diff;
+            sum_sq_error += sq_diff;
+
+            if (std::isnan(sq_diff) || std::isnan(sum_sq_error)) {
+                std::cerr << "DEBUG: NaN detected in RMSE calculation for " << obs.name << " at index " << i
+                          << ": sim=" << sim_vec[i] << ", meas=" << meas_vec[i] << ", diff=" << diff
+                          << ", sq_diff=" << sq_diff << ", running_sum=" << sum_sq_error << std::endl;
+            }
         }
         total_points += sim_vec.size();
     }
 
+    std::cout << "DEBUG: RMSE calculation complete. total_points=" << total_points << ", sum_sq_error=" << sum_sq_error
+              << std::endl;
+
     if (total_points == 0) {
-        return std::numeric_limits<double>::infinity(); // Or NaN?
+        std::cerr << "DEBUG: No valid points for RMSE calculation, returning infinity" << std::endl;
+        return std::numeric_limits<double>::infinity();
     }
-    return std::sqrt(sum_sq_error / total_points);
+
+    double rmse = std::sqrt(sum_sq_error / total_points);
+    std::cout << "DEBUG: Final RMSE = " << rmse << std::endl;
+    return rmse;
 }
 
 std::vector<EstimationResult>
@@ -640,6 +784,17 @@ ParameterEstimator::process_solutions_and_validate(const PolynomialSolutionSet &
             bool backward_integration_ok = true;
             std::cout << "      Performing backward ODE integration from t_eval=" << this->t_eval_ // Use this->t_eval_
                       << " to t_initial=" << t_initial << " for sol #" << sol_idx << std::endl;
+
+            // Debug: Print parameters and initial conditions for backward integration
+            std::cout << "      DEBUG: Parameters for backward integration:" << std::endl;
+            for (const auto &param_pair : current_result.parameters) {
+                std::cout << "        " << param_pair.first << " = " << param_pair.second << std::endl;
+            }
+            std::cout << "      DEBUG: Initial conditions for backward integration (at t_eval):" << std::endl;
+            for (size_t i = 0; i < system.state_variables.size(); ++i) {
+                std::cout << "        " << system.state_variables[i] << " = " << x_at_t_eval[i] << std::endl;
+            }
+
             try {
                 if (std::abs(this->t_eval_ - t_initial) > 1e-9) { // Use this->t_eval_
                     ODESystem<double> ode_integrator_system(
@@ -695,6 +850,17 @@ ParameterEstimator::process_solutions_and_validate(const PolynomialSolutionSet &
                     ODESystemStateType<double> fwd_sim_ic_state(system.num_states());
                     for (size_t i = 0; i < system.state_variables.size(); ++i)
                         fwd_sim_ic_state[i] = current_result.initial_conditions.at(system.state_variables[i]);
+
+                    // Debug: Print parameters and initial conditions for forward integration
+                    std::cout << "      DEBUG: Parameters for forward integration:" << std::endl;
+                    for (const auto &param_pair : current_result.parameters) {
+                        std::cout << "        " << param_pair.first << " = " << param_pair.second << std::endl;
+                    }
+                    std::cout << "      DEBUG: Initial conditions for forward integration (at t_initial):" << std::endl;
+                    for (size_t i = 0; i < system.state_variables.size(); ++i) {
+                        std::cout << "        " << system.state_variables[i] << " = " << fwd_sim_ic_state[i]
+                                  << std::endl;
+                    }
 
                     // current_result.simulated_trajectory is ODESystem<double>::ResultsType (map<string,
                     // vector<double>>)
@@ -780,10 +946,10 @@ run_estimation_over_time_points(const ObservedOdeSystem &system,
                                 const ExperimentalData &data,
                                 PolynomialSolver &solver,
                                 const std::vector<double> &t_eval_points,
-                                int max_deriv_order_config,
+                                int max_derivative_order_config,
                                 double validation_error_threshold,
                                 double approximator_tol,
-                                unsigned int approximator_max_order,
+                                unsigned int approximator_max_order_config,
                                 int ident_num_test_points,
                                 double ident_rank_tol,
                                 double ident_null_tol,
@@ -791,18 +957,19 @@ run_estimation_over_time_points(const ObservedOdeSystem &system,
                                 double integration_rel_err,
                                 double integration_dt_hint,
                                 double real_tolerance,
-                                double parameter_positive_threshold) { // Added parameter_positive_threshold
+                                double parameter_positive_threshold) {
     std::cout << "===== Starting Estimation Over Time Points =====" << std::endl;
     std::vector<EstimationResult> all_valid_results;
 
     // --- 1. Run Setup Once ---
-    std::cout << "--- Running Initial Setup (Identifiability) --- " << std::endl;
-    EstimationSetupData setup_data = setup_estimation(
-      system, params_to_analyze, max_deriv_order_config, ident_num_test_points, ident_rank_tol, ident_null_tol);
+    std::cout << "--- Running Initial Setup (Identifiability & Initial Symbolic Derivs) --- " << std::endl;
+    EstimationSetupData initial_setup_data = setup_estimation(
+      system, params_to_analyze, max_derivative_order_config, ident_num_test_points, ident_rank_tol, ident_null_tol);
     std::cout << "--- Initial Setup Complete --- " << std::endl;
 
     // --- 2. Fit Approximators Once ---
-    std::cout << "--- Fitting Observable Approximators --- " << std::endl;
+    std::cout << "--- Fitting Observable Approximators (up to approximator_max_order_config: "
+              << approximator_max_order_config << ") --- " << std::endl;
     std::map<Observable, AAApproximator<double>> approximators;
     std::set<Observable> observables_with_data;
     for (const auto &pair : data.measurements) {
@@ -812,127 +979,196 @@ run_estimation_over_time_points(const ObservedOdeSystem &system,
             throw std::runtime_error("Data size mismatch for observable " + obs.name);
         }
         std::cout << "  Fitting approximator for observable: " << obs.name << std::endl;
-        // Ensure approximator supports potentially high derivatives needed by setup_data
-        unsigned int max_order_needed_for_any_obs = 0;
-        for (const auto &order_pair : setup_data.required_derivative_orders) {
-            max_order_needed_for_any_obs = std::max(max_order_needed_for_any_obs, (unsigned int)order_pair.second);
-        }
-        // Ensure the approximator is configured to handle at least the highest order derivative needed + 1
-        unsigned int required_approx_order = std::max(approximator_max_order, max_order_needed_for_any_obs + 1);
-
-        approximators.emplace(obs, AAApproximator<double>(approximator_tol, 100, required_approx_order));
+        approximators.emplace(obs, AAApproximator<double>(approximator_tol, 100, approximator_max_order_config));
         try {
             approximators.at(obs).fit(data.times, values);
             observables_with_data.insert(obs);
-            std::cout << "    Fit successful." << std::endl;
+            std::cout << "    Fit successful for " << obs.name << "." << std::endl;
         } catch (const std::exception &e) {
             std::cerr << "    Warning: Failed to fit approximator for " << obs.name << ": " << e.what()
-                      << ". This observable cannot be used." << std::endl;
-            // Remove the failed approximator? Keep it simple for now.
+                      << ". This observable cannot be used for derivative approximation." << std::endl;
         }
     }
     std::cout << "--- Approximator Fitting Complete --- " << std::endl;
 
     // --- 3. Loop over t_eval points ---
     std::cout << "--- Processing t_eval points --- " << std::endl;
+    std::vector<Observable> sorted_system_observables = system.get_observables();
+
     for (double t_eval : t_eval_points) {
         std::cout << "\n--- Evaluating at t_eval = " << t_eval << " ---" << std::endl;
 
-        // 4. Approximate required derivatives at THIS t_eval
-        std::map<Variable, double> approx_obs_values_at_t;
-        bool approx_ok = true;
-        std::cout << "  Approximating observable derivatives..." << std::endl;
-        for (const auto &req_pair : setup_data.required_derivative_orders) {
-            const Observable &obs = req_pair.first;
-            int max_order_for_this_obs = req_pair.second;
+        EstimationSetupData current_run_setup_data = initial_setup_data;
+        PolynomialSolutionSet solutions;
+        bool final_attempt_for_t_eval_had_0D_solution = false;
+        int retry_count = 0;
+        const int MAX_SOLVE_RETRIES = system.num_observables() * (max_derivative_order_config + 1) + 2;
 
-            // Check if we have data and a fitted approximator for this observable
-            if (observables_with_data.find(obs) == observables_with_data.end()) {
-                std::cerr << "    Warning: Cannot approximate derivatives for " << obs.name
-                          << ", no valid data/approximator found. Skipping equations involving it for this t_eval."
+        std::map<Variable, double> current_approx_obs_values;
+        int msolve_dim = -2; // Declare msolve_dim outside the loop
+
+        while (retry_count < MAX_SOLVE_RETRIES) {
+            std::cout << "  Attempt " << (retry_count + 1) << "/" << MAX_SOLVE_RETRIES << " for t_eval = " << t_eval
+                      << " with orders: ";
+            for (const auto &p : current_run_setup_data.required_derivative_orders) {
+                std::cout << p.first.name << ":" << p.second << " ";
+            }
+            std::cout << std::endl;
+
+            current_approx_obs_values.clear();
+            bool approx_ok = true;
+            std::cout << "    Approximating observable derivatives for current orders..." << std::endl;
+            for (const auto &req_pair : current_run_setup_data.required_derivative_orders) {
+                const Observable &obs = req_pair.first;
+                int max_order_for_this_obs = req_pair.second;
+
+                if (observables_with_data.find(obs) == observables_with_data.end()) {
+                    std::cerr << "    Error: No data/approximator for required observable " << obs.name
+                              << ". Cannot approximate derivatives." << std::endl;
+                    approx_ok = false;
+                    break;
+                }
+                const auto &approximator = approximators.at(obs);
+                for (int order = 0; order <= max_order_for_this_obs; ++order) {
+                    Variable obs_deriv_var(obs.name, order);
+                    try {
+                        if (static_cast<unsigned int>(order) > approximator_max_order_config) {
+                            std::cerr << "    Error: Requested derivative order " << order << " for " << obs.name
+                                      << " exceeds approximator max configured order (" << approximator_max_order_config
+                                      << ")." << std::endl;
+                            throw std::runtime_error("Approximator order exceeded during retry loop.");
+                        }
+                        double approx_val = approximator.derivative(t_eval, order);
+                        current_approx_obs_values[obs_deriv_var] = approx_val;
+                    } catch (const std::exception &e) {
+                        std::cerr << "    Error approximating derivative order " << order << " for " << obs.name
+                                  << " at t = " << t_eval << ": " << e.what() << std::endl;
+                        approx_ok = false;
+                        break;
+                    }
+                }
+                if (!approx_ok) break;
+            }
+
+            if (!approx_ok) {
+                std::cout << "    Approximation failed. Stopping retries for this t_eval." << std::endl;
+                break;
+            }
+            std::cout << "    Derivative approximation complete for this attempt (" << current_approx_obs_values.size()
+                      << " values)." << std::endl;
+
+            ParameterEstimator estimator(solver, current_run_setup_data, current_approx_obs_values, t_eval);
+            try {
+                solutions = estimator.solve();
+                msolve_dim = solver.get_last_solution_dimension();
+                std::cout << "    MSolve reported dimension: " << msolve_dim << std::endl;
+            } catch (const std::exception &e) {
+                std::cerr << "    Error during estimator.solve() on attempt " << (retry_count + 1) << ": " << e.what()
                           << std::endl;
-                // Mark as not ok, but maybe allow proceeding if other observables provide enough info?
-                // For now, let's skip this t_eval if any required approx fails.
-                approx_ok = false; // Simplest approach: require all needed approximations
                 break;
             }
 
-            const auto &approximator = approximators.at(obs);
-            for (int order = 0; order <= max_order_for_this_obs; ++order) {
-                Variable obs_deriv_var(obs.name, order);
-                try {
-                    double approx_val = approximator.derivative(t_eval, order);
-                    approx_obs_values_at_t[obs_deriv_var] = approx_val;
-                    std::cout << "    Approx " << obs_deriv_var << " = " << approx_val << std::endl;
-                } catch (const std::exception &e) {
-                    std::cerr << "    Error approximating derivative order " << order << " for " << obs.name
-                              << " at t = " << t_eval << ": " << e.what() << ". Skipping this t_eval point."
-                              << std::endl;
-                    approx_ok = false;
-                    break; // Stop approximating for this observable
+            if (msolve_dim == 0) {
+                final_attempt_for_t_eval_had_0D_solution = true;
+                std::cout << "    0-Dimensional system achieved and solved." << std::endl;
+                break;
+            } else if (msolve_dim > 0) {
+                std::cout << "    System is " << msolve_dim << "-dimensional." << std::endl;
+                retry_count++;
+                if (retry_count >= MAX_SOLVE_RETRIES) {
+                    std::cout << "    Max retries reached for positive dimension system." << std::endl;
+                    break;
                 }
+
+                bool order_was_incremented = false;
+                if (!sorted_system_observables.empty()) {
+                    const auto &obs_to_try_inc =
+                      sorted_system_observables[(retry_count - 1) % sorted_system_observables.size()];
+
+                    int current_order_of_obs = 0;
+                    auto it_ord = current_run_setup_data.required_derivative_orders.find(obs_to_try_inc);
+                    if (it_ord != current_run_setup_data.required_derivative_orders.end()) {
+                        current_order_of_obs = it_ord->second;
+                    }
+
+                    if (current_order_of_obs < max_derivative_order_config) {
+                        current_run_setup_data.required_derivative_orders[obs_to_try_inc] = current_order_of_obs + 1;
+                        order_was_incremented = true;
+                        std::cout << "      Incremented order for " << obs_to_try_inc.name << " to "
+                                  << (current_order_of_obs + 1) << "." << std::endl;
+                    } else {
+                        std::cout << "      Observable " << obs_to_try_inc.name
+                                  << " already at max_derivative_order_config (" << max_derivative_order_config
+                                  << "). Will try next if available or stop." << std::endl;
+                        for (const auto &other_obs : sorted_system_observables) {
+                            if (other_obs == obs_to_try_inc) continue;
+                            int other_obs_order = 0;
+                            auto it_other = current_run_setup_data.required_derivative_orders.find(other_obs);
+                            if (it_other != current_run_setup_data.required_derivative_orders.end()) {
+                                other_obs_order = it_other->second;
+                            }
+                            if (other_obs_order < max_derivative_order_config) {
+                                current_run_setup_data.required_derivative_orders[other_obs] = other_obs_order + 1;
+                                order_was_incremented = true;
+                                std::cout << "      Incremented order for alternate observable " << other_obs.name
+                                          << " to " << (other_obs_order + 1) << "." << std::endl;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (order_was_incremented) {
+                    std::cout << "      Re-computing symbolic derivatives for new orders..." << std::endl;
+                    auto new_symbolic_derivs = internal::compute_required_symbolic_derivatives(
+                      system, current_run_setup_data.required_derivative_orders);
+                    current_run_setup_data.symbolic_state_derivs = std::move(new_symbolic_derivs.first);
+                    current_run_setup_data.symbolic_obs_derivs = std::move(new_symbolic_derivs.second);
+                    std::cout << "      Re-computed " << current_run_setup_data.symbolic_state_derivs.size()
+                              << " state symbolic_derivs and " << current_run_setup_data.symbolic_obs_derivs.size()
+                              << " obs symbolic_derivs." << std::endl;
+                } else {
+                    std::cout << "    Cannot increment orders further (all observables might be at "
+                                 "max_derivative_order_config). Using current solution dimension."
+                              << std::endl;
+                    break;
+                }
+            } else {
+                std::cout << "    MSolve reported error or no solution (dim " << msolve_dim
+                          << "). No further retries for this t_eval." << std::endl;
+                break;
             }
-            if (!approx_ok) break; // Stop processing this t_eval
-        }
+        } // End retry while loop
 
-        if (!approx_ok || approx_obs_values_at_t.empty()) {
-            std::cout << "  Skipping t_eval = " << t_eval << " due to issues during derivative approximation."
-                      << std::endl;
-            continue; // Move to the next t_eval point
-        }
-        std::cout << "  Derivative approximation complete." << std::endl;
-
-        // 5. Instantiate Estimator for THIS t_eval
-        ParameterEstimator estimator(solver, setup_data, approx_obs_values_at_t, t_eval);
-
-        // 6. Solve algebraic system at THIS t_eval
-        PolynomialSolutionSet solutions;
-        try {
-            solutions = estimator.solve();
-        } catch (const std::exception &e) {
-            std::cerr << "  Error solving algebraic system at t_eval = " << t_eval << ": " << e.what()
-                      << ". Skipping this t_eval point." << std::endl;
-            continue;
-        }
-
-        // 7. Process solutions (backward/forward/validate)
-        if (!solutions.empty()) {
+        if (final_attempt_for_t_eval_had_0D_solution && !solutions.empty()) {
+            std::cout << "  Processing 0-D solutions for t_eval = " << t_eval << std::endl;
+            ParameterEstimator final_estimator(solver, current_run_setup_data, current_approx_obs_values, t_eval);
             try {
-                double t_initial = data.times.front();
+                double t_initial_for_validation = data.times.empty() ? 0.0 : data.times.front();
                 std::vector<EstimationResult> results_for_t =
-                  estimator.process_solutions_and_validate(solutions,
-                                                           system,
-                                                           data,
-                                                           t_initial,
-                                                           validation_error_threshold,
-                                                           integration_abs_err,
-                                                           integration_rel_err,
-                                                           integration_dt_hint,
-                                                           real_tolerance,
-                                                           parameter_positive_threshold);
-                // Append valid results from this t_eval to the main list
+                  final_estimator.process_solutions_and_validate(solutions,
+                                                                 system,
+                                                                 data,
+                                                                 t_initial_for_validation,
+                                                                 validation_error_threshold,
+                                                                 integration_abs_err,
+                                                                 integration_rel_err,
+                                                                 integration_dt_hint,
+                                                                 real_tolerance,
+                                                                 parameter_positive_threshold);
                 all_valid_results.insert(all_valid_results.end(), results_for_t.begin(), results_for_t.end());
             } catch (const std::exception &e) {
                 std::cerr << "  Error processing/validating solutions for t_eval = " << t_eval << ": " << e.what()
                           << std::endl;
             }
+        } else {
+            std::cout << "  No 0-D solutions to process for t_eval = " << t_eval
+                      << (solutions.empty() && msolve_dim != 0 ? " (msolve was not 0D or had no solution)." : ".")
+                      << std::endl;
         }
-    }
+    } // End t_eval loop
 
     std::cout << "===== Estimation Over Time Points Complete =====" << std::endl;
-
-    // 8. Optional: Filter/rank combined results
-    if (all_valid_results.size() > 1) {
-        std::cout << "--- Post-processing combined results (" << all_valid_results.size()
-                  << " potential candidates) --- " << std::endl;
-        // Example: Sort all combined results by RMSE
-        std::sort(all_valid_results.begin(), all_valid_results.end(), [](const auto &a, const auto &b) {
-            return a.error_metric < b.error_metric;
-        });
-        // Example: Remove duplicates based on parameters/ICs being very close? Requires more complex logic.
-        std::cout << "  Results sorted by RMSE." << std::endl;
-    }
-
     return all_valid_results;
 }
 

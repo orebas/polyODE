@@ -25,12 +25,15 @@ class MSolveSolver : public PolynomialSolver {
     PolynomialSolutionSet solve(const AlgebraicSystem &system) override;
     std::string name() const override;
 
+    int get_last_solution_dimension() const override;
+
     // Helper to convert double to exact rational string
     static std::string double_to_rational_string(double x);
 
   private:
     std::string msolve_executable_path_;
     std::string python_script_path_;
+    mutable int last_solution_dimension_ = -2; // Default to unknown/error
 
     // Helper to convert AlgebraicSystem to msolve string format
     std::string convert_to_msolve_format(const AlgebraicSystem &system,

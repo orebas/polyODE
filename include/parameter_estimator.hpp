@@ -32,6 +32,8 @@ struct EstimationSetupData {
     // Value: The corresponding symbolic expression as a RationalFunction
     std::map<Variable, RationalFunction<double>> symbolic_state_derivs;
     std::map<Variable, RationalFunction<double>> symbolic_obs_derivs;
+
+    const ObservedOdeSystem *original_system_ptr = nullptr; // Pointer to the original system definition
 };
 
 /**

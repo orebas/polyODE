@@ -43,6 +43,13 @@ class PolynomialSolver {
      * @return std::string The solver's name.
      */
     virtual std::string name() const = 0;
+
+    /**
+     * @brief Returns the dimension of the solution set from the last call to solve().
+     *
+     * @return int The dimension of the solution set.
+     */
+    virtual int get_last_solution_dimension() const = 0;
 };
 
 } // namespace poly_ode

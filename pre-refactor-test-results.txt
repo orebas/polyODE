@@ -1,0 +1,37 @@
+Found 138 CTest tests
+------------------------------------------------------------
+[90/138] ⚠ ParameterEstimatorIntegrationTest.SolveSimpleSystemWithPHC (Disabled) - ERROR (0.02s)
+[101/138] ⚠ ParameterEstimatorScenariosTest.SumTestSystem (Disabled) - ERROR (0.02s)
+[105/138] ⚠ SystematicModelTest.SumTestModel (Disabled) - ERROR (0.02s)
+[107/138] ⚠ SystematicModelTest.SEIRModel (Disabled) - ERROR (0.02s)
+[108/138] ⚠ SystematicModelTest.TreatmentModel (Disabled) - ERROR (0.02s)
+[112/138] ✗ SystematicModelTest.BrusselatorModel - FAILED (0.29s)
+[116/138] ✗ SystematicModelTest.DaisyEx3Model - FAILED (0.20s)
+[119/138] ✗ SystematicModelTest.DaisyMamil3Model - FAILED (0.19s)
+[123/138] ⚠ SystematicModelTest.SirsforcedModel (Disabled) - ERROR (0.02s)
+[126/138] ✗ SystematicModelTest.BiohydrogenationModel - FAILED (0.17s)
+[127/138] ⚠ SystematicModelTest.RepressilatorModel (Disabled) - ERROR (0.02s)
+[135/138] ✗ SystematicModelTest.PerformanceBenchmark - FAILED (0.44s)
+------------------------------------------------------------
+
+SUMMARY:
+Total tests: 138
+  PASSED: 126
+  FAILED: 5
+  ERROR: 7
+
+FAILED tests:
+  - SystematicModelTest.BrusselatorModel
+  - SystematicModelTest.DaisyEx3Model
+  - SystematicModelTest.DaisyMamil3Model
+  - SystematicModelTest.BiohydrogenationModel
+  - SystematicModelTest.PerformanceBenchmark
+
+ERROR tests:
+  - ParameterEstimatorIntegrationTest.SolveSimpleSystemWithPHC (Disabled)
+  - ParameterEstimatorScenariosTest.SumTestSystem (Disabled)
+  - SystematicModelTest.SumTestModel (Disabled)
+  - SystematicModelTest.SEIRModel (Disabled)
+  - SystematicModelTest.TreatmentModel (Disabled)
+  - SystematicModelTest.SirsforcedModel (Disabled)
+  - SystematicModelTest.RepressilatorModel (Disabled)

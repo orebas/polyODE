@@ -13,6 +13,14 @@ IdentifiabilityAnalyzer::IdentifiabilityAnalyzer(const ObservedOdeSystem &system
   : system_ref_(system)
   , parameters_to_analyze_(parameters_to_analyze)
   , max_derivative_order_(max_derivative_order) {
+    std::cout << "[DEBUG IA::Constructor] Initializing IdentifiabilityAnalyzer." << std::endl;
+    std::cout << "  [DEBUG IA::Constructor] System: num_states=" << system_ref_.num_states()
+              << ", num_params=" << system_ref_.num_parameters() << std::endl;
+    std::cout << "  [DEBUG IA::Constructor] Parameters to analyze (" << parameters_to_analyze_.size() << "): ";
+    for (const auto &p : parameters_to_analyze_) { std::cout << p << " "; }
+    std::cout << std::endl;
+    std::cout << "  [DEBUG IA::Constructor] Max derivative order initially set to: " << max_derivative_order_
+              << std::endl;
 
     if (max_derivative_order_ < 0) { throw std::invalid_argument("Maximum derivative order must be non-negative."); }
     if (parameters_to_analyze_.empty()) {
@@ -26,6 +34,8 @@ IdentifiabilityAnalyzer::IdentifiabilityAnalyzer(const ObservedOdeSystem &system
 
 void
 IdentifiabilityAnalyzer::compute_symbolic_derivatives() {
+    std::cout << "[DEBUG IA::compute_sym_derivs] Starting symbolic derivative computation..." << std::endl;
+    std::cout << "  [DEBUG IA::compute_sym_derivs] Max order for computation: " << max_derivative_order_ << std::endl;
     // Clear existing derivatives
     rhs_derivatives_.clear();
     observable_derivatives_.clear();
@@ -52,8 +62,8 @@ IdentifiabilityAnalyzer::compute_symbolic_derivatives() {
         observable_derivatives_[n + 1] = std::move(next_obs_derivs);
     }
 
-    std::cout << "Symbolic derivatives of RHS and observables computed up to order " << max_derivative_order_ << "."
-              << std::endl;
+    std::cout << "[DEBUG IA::compute_sym_derivs] Symbolic derivatives of RHS and observables computed up to order "
+              << max_derivative_order_ << "." << std::endl;
 }
 
 // Templated version of compute_Y_numerical for AD
@@ -74,6 +84,7 @@ IdentifiabilityAnalyzer::compute_Y_numerical(const std::map<Variable, double> &p
                                              const std::map<Variable, double> &fixed_param_values,
                                              const std::map<Variable, double> &fixed_ic_values,
                                              int derivative_order) const {
+    std::cout << "[DEBUG IA::compute_Y_numerical] Called for derivative_order: " << derivative_order << std::endl;
     // Call the templated version with T = double
     return compute_Y_templated<double>(param_values, fixed_param_values, fixed_ic_values, derivative_order);
 }
@@ -86,6 +97,13 @@ IdentifiabilityAnalyzer::determine_minimal_orders(const Eigen::MatrixXd &final_j
                                                   int target_rank,
                                                   double rank_tolerance,
                                                   int num_test_points) const {
+    std::cout << "[DEBUG IA::det_min_ord] Starting determine_minimal_orders function..." << std::endl;
+    std::cout << "  [DEBUG IA::det_min_ord] Target rank: " << target_rank << std::endl;
+    std::cout << "  [DEBUG IA::det_min_ord] Rank tolerance: " << rank_tolerance << std::endl;
+    std::cout << "  [DEBUG IA::det_min_ord] Num test points: " << num_test_points << std::endl;
+    std::cout << "  [DEBUG IA::det_min_ord] Jacobian T for check: rows=" << final_jacobian_T.rows()
+              << ", cols=" << final_jacobian_T.cols() << std::endl;
+
     std::map<Observable, int> current_orders;
     std::vector<Observable> ordered_obs = system_ref_.get_observables();
 
@@ -94,7 +112,7 @@ IdentifiabilityAnalyzer::determine_minimal_orders(const Eigen::MatrixXd &final_j
     for (const auto &obs : ordered_obs) { current_orders[obs] = initial_max_order; }
 
     // --- Overall Reduction ---
-    std::cout << "  Phase 1 (Minimal Orders): Reducing overall max order..." << std::endl;
+    std::cout << "  [DEBUG IA::det_min_ord Phase 1] Reducing overall max order..." << std::endl;
     int current_max_overall_order = initial_max_order;
     bool overall_reduced = false;
     for (int n_test = initial_max_order - 1; n_test >= 0; --n_test) {
@@ -103,11 +121,17 @@ IdentifiabilityAnalyzer::determine_minimal_orders(const Eigen::MatrixXd &final_j
 
         Eigen::MatrixXd S_view_T =
           select_rows_by_order(final_jacobian_T, temp_orders, ordered_obs, initial_max_order, num_test_points);
-        int rank_view = compute_numerical_rank(S_view_T.transpose(), rank_tolerance, false); // Less verbose
+        int rank_view = compute_numerical_rank(
+          S_view_T.transpose(), rank_tolerance, true); // Less verbose initially, but will print from rank func
+
+        std::cout << "    [DEBUG IA::det_min_ord Overall] Testing overall order " << n_test
+                  << ", S_view_T dims: " << S_view_T.rows() << "x" << S_view_T.cols()
+                  << ", Rank(S_view) = " << rank_view << ", Target Rank = " << target_rank << std::endl;
 
         if (rank_view < target_rank) {
             current_max_overall_order = n_test + 1;
-            std::cout << "    Minimum required overall max order found: " << current_max_overall_order << std::endl;
+            std::cout << "    [DEBUG IA::det_min_ord Overall] Minimum required overall max order found: "
+                      << current_max_overall_order << std::endl;
             // Update main map
             for (auto &pair : current_orders) { pair.second = current_max_overall_order; }
             overall_reduced = true;
@@ -128,25 +152,32 @@ IdentifiabilityAnalyzer::determine_minimal_orders(const Eigen::MatrixXd &final_j
     }
 
     // --- Individual Refinement ---
-    std::cout << "  Phase 2 (Minimal Orders): Refining individual observable orders..." << std::endl;
+    std::cout << "  [DEBUG IA::det_min_ord Phase 2] Refining individual observable orders..." << std::endl;
     bool improvement_found = true;
     while (improvement_found) {
         improvement_found = false;
+        std::cout << "  [DEBUG IA::det_min_ord Indiv. Refine] Start of refinement pass. improvement_found = "
+                  << std::boolalpha << improvement_found << std::endl;
         for (const auto &obs_k : ordered_obs) {
+            std::cout << "    [DEBUG IA::det_min_ord Indiv. Refine] Trying to reduce for observable: " << obs_k.name
+                      << std::endl;
             int current_order_k = current_orders[obs_k];
             if (current_order_k > 0) {
-                // Try reducing order for this observable
                 std::map<Observable, int> temp_orders = current_orders;
                 temp_orders[obs_k] = current_order_k - 1;
 
                 Eigen::MatrixXd S_view_T =
                   select_rows_by_order(final_jacobian_T, temp_orders, ordered_obs, initial_max_order, num_test_points);
-                int rank_view = compute_numerical_rank(S_view_T.transpose(), rank_tolerance, false); // Less verbose
+                int rank_view = compute_numerical_rank(S_view_T.transpose(), rank_tolerance, true); // Debug print true
+
+                std::cout << "      [DEBUG IA::det_min_ord Indiv. Refine] Testing reduction for " << obs_k.name
+                          << " to order " << (current_order_k - 1) << ", S_view_T dims: " << S_view_T.rows() << "x"
+                          << S_view_T.cols() << ", Rank(S_view) = " << rank_view << ", Target Rank = " << target_rank
+                          << std::endl;
 
                 if (rank_view == target_rank) {
-                    // Reduction successful! Update permanently and signal improvement found.
-                    std::cout << "    Reduced max order for " << obs_k.name << " to " << (current_order_k - 1)
-                              << std::endl;
+                    std::cout << "      [DEBUG IA::det_min_ord Indiv. Refine]   SUCCESS: Reduced max order for "
+                              << obs_k.name << " to " << (current_order_k - 1) << std::endl;
                     current_orders[obs_k] = current_order_k - 1;
                     improvement_found = true;
                     // Continue checking other observables in this pass
@@ -155,227 +186,11 @@ IdentifiabilityAnalyzer::determine_minimal_orders(const Eigen::MatrixXd &final_j
         } // End for loop over observables
     } // End while(improvement_found)
 
-    std::cout << "  Minimal derivative orders determined." << std::endl;
+    std::cout << "  [DEBUG IA::det_min_ord] Minimal derivative orders determined." << std::endl;
     for (const auto &pair : current_orders) {
-        std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
+        std::cout << "    [DEBUG IA::det_min_ord] " << pair.first.name << ": " << pair.second << std::endl;
     }
-    return current_orders;
-}
-
-// --- Helper Method Implementation: determine_square_system_orders --- //
-std::map<Observable, int>
-IdentifiabilityAnalyzer::determine_square_system_orders(const std::vector<Variable> &identifiable_params,
-                                                        const std::map<Observable, int> &minimal_orders) const {
-    std::cout << "\n--- Inside determine_square_system_orders ---" << std::endl;
-    std::cout << "  Input identifiable parameters (" << identifiable_params.size() << "): ";
-    for (const auto &param : identifiable_params) { std::cout << param << " "; }
-    std::cout << std::endl;
-
-    std::cout << "  Input minimal orders (" << minimal_orders.size() << "): " << std::endl;
-    for (const auto &pair : minimal_orders) {
-        std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
-    }
-
-    std::map<Observable, int> current_orders = minimal_orders;
-    std::vector<Observable> ordered_observables = system_ref_.get_observables();
-
-    std::cout << "  Initialized current_orders from minimal_orders. Size: " << current_orders.size() << std::endl;
-    for (const auto &pair : current_orders) {
-        std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
-    }
-
-    std::cout << "  Observables from system_ref_ (" << ordered_observables.size() << "): ";
-    for (const auto &obs : ordered_observables) { std::cout << obs.name << " "; }
-    std::cout << std::endl;
-
-    int iter = 0;
-    const int max_iters = system_ref_.num_observables() * (max_derivative_order_ + 1) + 1; // Safety break
-
-    while (iter < max_iters) {
-        iter++;
-        std::cout << "  Square System Check Iteration " << iter << ":" << std::endl;
-        for (const auto &p : current_orders) { std::cout << "    " << p.first.name << "=" << p.second; }
-        std::cout << std::endl;
-
-        std::set<Variable> needed_vars;                // All unique vars involved (params, states, derivs)
-        std::set<Variable> state_deriv_vars_needed;    // Just state derivatives (x_i^j, j>0)
-        std::set<Variable> state_deriv_vars_processed; // Track processed derivatives
-        std::queue<Variable> state_deriv_queue;        // Queue for processing
-        std::set<Polynomial<double>> equations;        // Store unique polynomial equations
-        std::map<Variable, RationalFunction<double>> state_deriv_definitions; // To look up f_i^(j-1)
-
-        // Add identifiable parameters to the set of needed variables initially
-        for (const auto &param : identifiable_params) { needed_vars.insert(param); }
-
-        // --- 1. Collect equations and variables from Observable derivatives ---
-        int num_observable_eqs = 0;
-        for (const auto &obs_pair : current_orders) {
-            const Observable &obs = obs_pair.first;
-            int max_order = obs_pair.second;
-
-            for (int order = 0; order <= max_order; ++order) {
-                num_observable_eqs++;
-                // Find the symbolic expression y_k^(order)
-                if (observable_derivatives_.count(order) && observable_derivatives_.at(order).count(obs)) {
-                    const RationalFunction<double> &rf = observable_derivatives_.at(order).at(obs);
-                    // Equation: y_k^(order) * Denom - Num = 0 ( conceptually )
-                    // We only need the variables from Num and Denom here
-                    std::set<Variable> vars_in_rf = get_variables_from_rf(rf);
-                    for (const auto &var : vars_in_rf) {
-                        if (needed_vars.insert(var).second) { // If newly inserted
-                            if (var.deriv_level > 0 && !var.is_constant) {
-                                // This is a state derivative (e.g., x1^1, x2^3)
-                                if (state_deriv_vars_needed.insert(var).second) {
-                                    state_deriv_queue.push(var); // Add to queue if not seen before
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    std::cerr << "    Warning: Missing symbolic derivative for observable " << obs.name << " order "
-                              << order << " needed for squaring check." << std::endl;
-                    // Treat as an equation with no contribution? Might skew results.
-                    // For now, proceed, assuming it might become available later if orders increase.
-                }
-            }
-        }
-        // ---- START INSERTED DEBUG LOG ----
-        std::cout << "      DEBUG needed_vars before logging as 'Initial needed vars' (size=" << needed_vars.size()
-                  << ") : { ";
-        for (const auto &unk : needed_vars) { // Iterate over needed_vars
-            std::cout << unk << "(" << (unk.is_constant ? "C" : "NC") << ") ";
-        }
-        std::cout << "}" << std::endl;
-        // ---- END INSERTED DEBUG LOG ----
-        std::cout << "    Observable equations added: " << num_observable_eqs << std::endl;
-        std::cout << "    Initial needed vars: " << needed_vars.size() << std::endl;
-        std::cout << "    Initial state deriv queue size: " << state_deriv_queue.size() << std::endl;
-
-        // --- 2. Recursively add State Derivative equations and their variables ---
-        int num_state_deriv_eqs = 0;
-        while (!state_deriv_queue.empty()) {
-            Variable current_deriv = state_deriv_queue.front();
-            state_deriv_queue.pop();
-
-            // Skip if already processed or if deriv level is somehow 0
-            if (state_deriv_vars_processed.count(current_deriv) || current_deriv.deriv_level <= 0) { continue; }
-
-            num_state_deriv_eqs++;
-            state_deriv_vars_processed.insert(current_deriv);
-
-            // Find the definition: x_i^j = f_i^(j-1)
-            int state_idx = -1;
-            for (size_t i = 0; i < system_ref_.state_variables.size(); ++i) {
-                if (system_ref_.state_variables[i].name == current_deriv.name) {
-                    state_idx = i;
-                    break;
-                }
-            }
-            int rhs_deriv_order = current_deriv.deriv_level - 1;
-
-            if (state_idx == -1) {
-                std::cerr << "    Warning: Could not find state variable index for derivative " << current_deriv
-                          << std::endl;
-                continue;
-            }
-            if (!rhs_derivatives_.count(rhs_deriv_order) ||
-                rhs_derivatives_.at(rhs_deriv_order).size() <= static_cast<size_t>(state_idx)) {
-                std::cerr << "    Warning: Missing symbolic RHS derivative f_" << state_idx << "^(" << rhs_deriv_order
-                          << ") needed for " << current_deriv << std::endl;
-                continue;
-            }
-
-            const RationalFunction<double> &rhs_rf = rhs_derivatives_.at(rhs_deriv_order).at(state_idx);
-            state_deriv_definitions[current_deriv] = rhs_rf; // Store definition
-
-            // Add variables from this RHS definition
-            std::set<Variable> vars_in_rhs = get_variables_from_rf(rhs_rf);
-            for (const auto &var : vars_in_rhs) {
-                if (needed_vars.insert(var).second) { // If newly inserted
-                    if (var.deriv_level > 0 && !var.is_constant) {
-                        // New state derivative found
-                        if (state_deriv_vars_needed.insert(var).second) { state_deriv_queue.push(var); }
-                    }
-                }
-            }
-        }
-        std::cout << "    State derivative equations added: " << num_state_deriv_eqs << std::endl;
-
-        // --- 3. Count total unknowns and equations ---
-        // Unknowns: Identifiable params + unique state vars (including derivs) + unique obs derivs
-        // Note: needed_vars already contains all unique variables involved.
-        size_t num_actual_unknowns = 0;
-        std::set<Variable> identifiable_params_set(identifiable_params.begin(), identifiable_params.end());
-        for (const auto &var_in_needed : needed_vars) {
-            if (var_in_needed.is_constant) {                        // It's a parameter
-                if (identifiable_params_set.count(var_in_needed)) { // It's an identifiable parameter
-                    num_actual_unknowns++;
-                }
-                // Else, it's a non-identifiable parameter that will be fixed, so don't count it as an unknown for the
-                // solver.
-            } else { // It's a state variable or its derivative
-                num_actual_unknowns++;
-            }
-        }
-        size_t num_unknowns = num_actual_unknowns; // Use this refined count for squareness check
-
-        size_t num_equations = num_observable_eqs + num_state_deriv_eqs;
-
-        std::cout << "    Total Unknowns (refined count): " << num_unknowns << std::endl;
-        std::cout << "    Total Equations: " << num_equations << std::endl;
-
-        // --- 4. Check for squareness and decide next step ---
-        if (num_equations == num_unknowns) {
-            std::cout << "  System is square. Final orders determined." << std::endl;
-            std::cout << "  Loop stats: num_observable_eqs=" << num_observable_eqs
-                      << ", num_state_deriv_eqs=" << num_state_deriv_eqs << ", num_unknowns=" << num_unknowns
-                      << ", num_equations=" << num_equations << std::endl;
-            return current_orders; // Found square system
-        } else if (num_equations < num_unknowns) {
-            // Need more equations. Increment the order of the 'cheapest' observable.
-            int min_order = max_derivative_order_ + 1;
-            Observable *obs_to_increment = nullptr;
-
-            // Find observable with lowest current order < max_derivative_order_
-            for (auto &obs : ordered_observables) { // Use iterator/pointer if modifying map key needed
-                if (current_orders.at(obs) < max_derivative_order_ && current_orders.at(obs) < min_order) {
-                    min_order = current_orders.at(obs);
-                    // Find the observable by searching the map again (or use iterators)
-                    auto it = std::find_if(ordered_observables.begin(),
-                                           ordered_observables.end(),
-                                           [&](const Observable &o) { return o.name == obs.name; });
-                    if (it != ordered_observables.end()) { obs_to_increment = &(*it); }
-                }
-            }
-
-            if (obs_to_increment) {
-                std::cout << "  System underdetermined. Incrementing order for " << obs_to_increment->name << std::endl;
-                std::cout << "  Incrementing " << obs_to_increment->name << " order from "
-                          << current_orders[*obs_to_increment] << " to " << (current_orders[*obs_to_increment] + 1)
-                          << std::endl;
-                current_orders[*obs_to_increment]++;
-            } else {
-                std::cout << "  System underdetermined, but all observables are at max order (" << max_derivative_order_
-                          << "). Cannot add more equations." << std::endl;
-                // Optional: Could return a special state or throw, but returning current orders is safer.
-                return current_orders; // Return the best attempt
-            }
-        } else { // num_equations > num_unknowns
-            std::cout << "  System overdetermined (" << num_equations << " eqs > " << num_unknowns
-                      << " unknowns). This is unexpected during order incrementing. Returning current orders."
-                      << std::endl;
-            // This might happen if the minimal orders already yield an overdetermined system.
-            return current_orders;
-        }
-    } // End while loop
-
-    std::cout << "  Warning: Max iterations reached in squaring check. Returning current best-effort orders."
-              << std::endl;
-    std::cout << "  Final current_orders being returned (" << current_orders.size() << "): " << std::endl;
-    for (const auto &pair : current_orders) {
-        std::cout << "    " << pair.first.name << ": " << pair.second << std::endl;
-    }
-    std::cout << "--- Exiting determine_square_system_orders ---\n" << std::endl;
+    std::cout << "[DEBUG IA::det_min_ord] Finished determine_minimal_orders function." << std::endl;
     return current_orders;
 }
 
